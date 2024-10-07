@@ -20,13 +20,13 @@ fn main() -> std::io::Result<()> {
     // refused" response, but that will take twice the ping, the roundtrip time, to reach the
     // client.
     let mut conn = Stream::connect(name)?;
-
+    let mut buffer = [0; 128];
     loop {
         // Limit to 5 pings/pongs
         conn.write_all(b"ping").expect("Failed to send ping");
-        let mut buffer = [0; 4];
+
         let bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
-        let message = String::from_utf8_lossy(&buffer[..bytes_read]);
+        let message = String::from_utf8((buffer[..bytes_read]).to_vec()).unwrap();
         println!("Client received: {}", message);
     }
     Ok(())

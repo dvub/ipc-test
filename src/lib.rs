@@ -1,4 +1,6 @@
 use nih_plug::prelude::*;
+use serde::Serialize;
+use serde_json::json;
 
 use std::{sync::Arc, thread::spawn};
 
@@ -6,6 +8,10 @@ use std::{sync::Arc, thread::spawn};
 struct PluginParams {
     #[id = "gain"]
     gain: FloatParam,
+}
+#[derive(Serialize)]
+struct SerializableParams {
+    gain: f32,
 }
 impl Default for PluginParams {
     fn default() -> Self {
@@ -134,27 +140,19 @@ impl Plugin for IPCPlugin {
             // The syncronization between the server and client, if any is used, goes here.
             eprintln!("Server running at {printname}");
 
-            // Preemptively allocate a sizeable buffer for receiving at a later moment. This size should
-            // be enough and should be easy to find for the allocator. Since we only have one concurrent
-            // client, there's no need to reallocate the buffer repeatedly.
-            let mut buffer = String::with_capacity(128);
             if let Some(mut conn) = listener.incoming().filter_map(handle_error).next() {
                 loop {
-                    println!("FML");
                     let mut buffer = [0; 4]; // Buffer to read messages
                     let bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
-
                     let message = String::from_utf8_lossy(&buffer[..bytes_read]);
+
                     println!("Server received: {}", message);
 
-                    let reply = if message.trim() == "ping" {
-                        "pong"
-                    } else {
-                        "ping"
-                    };
-                    conn.write_all(reply.as_bytes())
+                    println!("Sending a new message..");
+                    let gain = params_clone.gain.value();
+                    let s = SerializableParams { gain };
+                    conn.write_all(json!(s).to_string().as_bytes())
                         .expect("Failed to write to socket");
-                    println!("BANG");
                 }
             }
 
