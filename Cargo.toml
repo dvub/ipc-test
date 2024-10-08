@@ -21,4 +21,4 @@ serde_json = "1.0.128"
 # nih_plug_vizia = { git = "https://github.com/robbert-vdh/nih-plug.git" }
 
 [workspace]
-members = ["xtask"]
+members = ["xtask","gui/src-tauri"]
