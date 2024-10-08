@@ -1,20 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [gain, setGain] = useState(0.0);
+  useEffect(() => {
+    let id = setInterval(() => {
+      greet();
+    }, 1);
+    return () => clearInterval(id);
+  }, []);
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("greet", { name }));
+    setGain(await invoke("get_gain"));
   }
 
   return (
     <div className="container">
       <h1>Welcome to Tauri!</h1>
+      <p>Gain: {gain}</p>
 
       <div className="row">
         <a href="https://vitejs.dev" target="_blank">
@@ -30,22 +36,6 @@ function App() {
 
       <p>Click on the Tauri, Vite, and React logos to learn more.</p>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-
-      <p>{greetMsg}</p>
     </div>
   );
 }
