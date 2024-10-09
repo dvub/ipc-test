@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::{sync::Mutex, thread};
 
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewWindowBuilder};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -33,7 +33,7 @@ fn spawn_ipc_listener(app_handle: AppHandle) {
             let v: Value = serde_json::from_str(&message).unwrap();
 
             let new_gain = v["gain"].as_f64().unwrap() as f32;
-            println!("Client received: {}", new_gain);
+            // println!("Client received: {}", new_gain);
             let mutex = app_handle.state::<Mutex<Params>>();
             let mut lock = mutex.lock().unwrap();
             lock.gain = new_gain;

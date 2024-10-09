@@ -1,8 +1,11 @@
+use editor::IPCEditor;
 use nih_plug::prelude::*;
 use serde::Serialize;
-use serde_json::json;
 
-use std::{sync::Arc, thread::spawn};
+use std::sync::Arc;
+
+mod editor;
+mod thread;
 
 #[derive(Params)]
 struct PluginParams {
@@ -31,6 +34,10 @@ impl Default for IPCPlugin {
 
         Self { params }
     }
+}
+
+enum Task {
+    SpawnIPCThread,
 }
 
 impl Plugin for IPCPlugin {
@@ -80,7 +87,6 @@ impl Plugin for IPCPlugin {
     // More advanced plugins can use this to run expensive background tasks. See the field's
     // documentation for more information. `()` means that the plugin does not have any background
     // tasks.
-    type BackgroundTask = ();
 
     fn initialize(
         &mut self,
@@ -88,81 +94,19 @@ impl Plugin for IPCPlugin {
         _buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        let params_clone = self.params.clone();
-        // a thread appears!
-        spawn(move || {
-            use interprocess::local_socket::{
-                prelude::*, GenericNamespaced, ListenerOptions, Stream,
-            };
-            use std::io::{self, prelude::*, BufReader};
-
-            // Define a function that checks for errors in incoming connections. We'll use this to filter
-            // through connections that fail on initialization for one reason or another.
-            fn handle_error(conn: io::Result<Stream>) -> Option<Stream> {
-                match conn {
-                    Ok(c) => Some(c),
-                    Err(e) => {
-                        eprintln!("Incoming connection failed: {e}");
-                        None
-                    }
-                }
-            }
-
-            // Pick a name.
-            let printname = "example.sock";
-            let name = printname.to_ns_name::<GenericNamespaced>()?;
-
-            // Configure our listener...
-            let opts = ListenerOptions::new().name(name);
-
-            // ...then create it.
-            let listener = match opts.create_sync() {
-                Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-                    // When a program that uses a file-type socket name terminates its socket server
-                    // without deleting the file, a "corpse socket" remains, which can neither be
-                    // connected to nor reused by a new listener. Normally, Interprocess takes care of
-                    // this on affected platforms by deleting the socket file when the listener is
-                    // dropped. (This is vulnerable to all sorts of races and thus can be disabled.)
-                    //
-                    // There are multiple ways this error can be handled, if it occurs, but when the
-                    // listener only comes from Interprocess, it can be assumed that its previous instance
-                    // either has crashed or simply hasn't exited yet. In this example, we leave cleanup
-                    // up to the user, but in a real application, you usually don't want to do that.
-                    eprintln!(
-                        "Error: could not start server because the socket file is occupied. Please check if
-                        {printname} is in use by another process and try again."
-                    );
-                    return Err(e);
-                }
-                x => x?,
-            };
-
-            // The syncronization between the server and client, if any is used, goes here.
-            eprintln!("Server running at {printname}");
-
-            if let Some(mut conn) = listener.incoming().filter_map(handle_error).next() {
-                loop {
-                    let mut buffer = [0; 4]; // Buffer to read messages
-                    let bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
-                    let message = String::from_utf8_lossy(&buffer[..bytes_read]);
-
-                    println!("Server received: {}", message);
-
-                    println!("Sending a new message..");
-                    let gain = params_clone.gain.value();
-                    let s = SerializableParams { gain };
-                    conn.write_all(json!(s).to_string().as_bytes())
-                        .expect("Failed to write to socket");
-                }
-            }
-
-            Ok(())
-        });
+        thread::ipc_server_listener(self.params.clone());
         true
     }
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
+    }
+
+    // this is a lie kind of
+    type BackgroundTask = ();
+
+    fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        Some(Box::new(IPCEditor {}))
     }
 
     fn process(

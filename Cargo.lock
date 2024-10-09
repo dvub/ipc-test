@@ -1520,6 +1520,8 @@ dependencies = [
 name = "ipc-test"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "gui",
  "interprocess",
  "nih_plug",
  "serde",
