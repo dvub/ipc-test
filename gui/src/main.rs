@@ -1,19 +1,10 @@
-use interprocess::local_socket::{prelude::*, GenericFilePath, GenericNamespaced, Stream};
-use std::io::prelude::*;
-use std::{sync::Mutex, thread};
+use gui::run;
 
-use serde_json::Value;
-use tauri::{AppHandle, Manager, State, WebviewWindowBuilder};
-
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn get_gain(state: State<Mutex<Params>>) -> f32 {
-    state.lock().unwrap().gain
+pub fn main() {
+    run();
 }
 
-struct Params {
-    gain: f32,
-}
+/*
 
 fn spawn_ipc_listener(app_handle: AppHandle) {
     thread::spawn(move || {
@@ -39,20 +30,4 @@ fn spawn_ipc_listener(app_handle: AppHandle) {
             lock.gain = new_gain;
         }
     });
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_gain])
-        .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
-            app.manage(Mutex::new(Params { gain: 0.0 }));
-
-            let handle = app.handle();
-            spawn_ipc_listener(handle.clone());
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+} */

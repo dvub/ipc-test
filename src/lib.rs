@@ -1,8 +1,12 @@
 use editor::IPCEditor;
 use nih_plug::prelude::*;
 use serde::Serialize;
+use thread::ipc_server_listener;
 
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 mod editor;
 mod thread;
@@ -16,6 +20,7 @@ struct PluginParams {
 struct SerializableParams {
     gain: f32,
 }
+
 impl Default for PluginParams {
     fn default() -> Self {
         Self {
@@ -26,18 +31,18 @@ impl Default for PluginParams {
 
 struct IPCPlugin {
     params: Arc<PluginParams>,
+    should_cancel_thread: Arc<AtomicBool>,
 }
 
 impl Default for IPCPlugin {
     fn default() -> Self {
         let params = Arc::new(PluginParams::default());
 
-        Self { params }
+        Self {
+            params,
+            should_cancel_thread: Arc::new(AtomicBool::new(false)),
+        }
     }
-}
-
-enum Task {
-    SpawnIPCThread,
 }
 
 impl Plugin for IPCPlugin {
@@ -94,7 +99,7 @@ impl Plugin for IPCPlugin {
         _buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        thread::ipc_server_listener(self.params.clone());
+        nih_log!("Initialized!");
         true
     }
 
@@ -105,8 +110,8 @@ impl Plugin for IPCPlugin {
     // this is a lie kind of
     type BackgroundTask = ();
 
-    fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        Some(Box::new(IPCEditor {}))
+    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        Some(Box::new(IPCEditor::default()))
     }
 
     fn process(
@@ -129,7 +134,10 @@ impl Plugin for IPCPlugin {
 
     // This can be used for cleaning up special resources like socket connections whenever the
     // plugin is deactivated. Most plugins won't need to do anything here.
-    fn deactivate(&mut self) {}
+    fn deactivate(&mut self) {
+        self.should_cancel_thread.store(true, Ordering::Relaxed);
+        nih_log!("Plugin has been deactivated. ");
+    }
 }
 
 impl ClapPlugin for IPCPlugin {

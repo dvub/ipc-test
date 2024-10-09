@@ -4,10 +4,11 @@ use serde_json::json;
 
 use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
 use std::io::{self, prelude::*};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::spawn;
 
-pub fn ipc_server_listener(params_clone: Arc<PluginParams>) {
+pub fn ipc_server_listener(params_clone: Arc<PluginParams>, should_cancel: Arc<AtomicBool>) {
     // a thread appears!
     spawn(move || {
         // Define a function that checks for errors in incoming connections. We'll use this to filter
@@ -58,9 +59,12 @@ pub fn ipc_server_listener(params_clone: Arc<PluginParams>) {
 
         if let Some(mut conn) = listener.incoming().filter_map(handle_error).next() {
             loop {
-                let num_bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
+                if should_cancel.load(Ordering::Relaxed) {
+                    println!("Received cancellation token. Terminating loop!")
+                }
 
-                let message = String::from_utf8(buffer[..num_bytes_read].to_vec()).unwrap();
+                let num_bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
+                let _message = String::from_utf8(buffer[..num_bytes_read].to_vec()).unwrap();
                 // println!("Server received: {}", message);
                 // println!("Sending a new message..");
 
