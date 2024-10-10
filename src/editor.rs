@@ -1,3 +1,5 @@
+use std::{os::unix::process::CommandExt, process::Command};
+
 use nih_plug::editor::Editor;
 
 #[derive(Default)]
@@ -11,12 +13,14 @@ impl Editor for IPCEditor {
         _parent: nih_plug::prelude::ParentWindowHandle,
         _context: std::sync::Arc<dyn nih_plug::prelude::GuiContext>,
     ) -> Box<dyn std::any::Any + Send> {
-        gui::run();
+        // TODO:
+        // make cross platform
+
         Box::new(())
     }
 
     fn size(&self) -> (u32, u32) {
-        (0, 0)
+        (100, 100)
     }
 
     fn set_scale_factor(&self, _factor: f32) -> bool {
