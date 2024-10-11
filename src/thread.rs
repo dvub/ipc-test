@@ -1,4 +1,6 @@
-use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
+use interprocess::local_socket::{
+    prelude::*, GenericFilePath, GenericNamespaced, ListenerOptions, Stream,
+};
 use std::io::{self, prelude::*, BufReader};
 
 pub fn get_client_id() -> anyhow::Result<u32> {

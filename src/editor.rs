@@ -1,4 +1,6 @@
 use std::{
+    fs::read_to_string,
+    path::{Path, PathBuf},
     process::{Child, Command},
     thread::spawn,
 };
@@ -11,6 +13,10 @@ use nih_plug::editor::{Editor, ParentWindowHandle};
 use x11rb::protocol::xproto::reparent_window;
 
 use crate::thread::get_client_id;
+
+use std::fs::File;
+
+use daemonize::Daemonize;
 
 #[derive(Default)]
 pub struct IPCEditor {}
@@ -32,12 +38,19 @@ impl WindowHandler for Handler {
 unsafe impl Send for Instance {}
 struct Instance {
     window_handle: WindowHandle,
-    child_handle: Child,
+    daemon_path: String,
 }
 impl Drop for Instance {
     fn drop(&mut self) {
+        // close process
         self.window_handle.close();
-        self.child_handle.kill().unwrap();
+
+        let pid = read_to_string(&self.daemon_path).expect("Unable to read PID file");
+        let o = Command::new("kill")
+            .arg("-9")
+            .arg(pid.trim())
+            .output()
+            .unwrap();
     }
 }
 
@@ -68,12 +81,7 @@ impl Editor for IPCEditor {
             // this could all go horribly wrong
             // what happens then?
             let handle = spawn(move || get_client_id().unwrap());
-
-            let child_handle =
-                Command::new("/home/kaya/projects/audio-dev/ipc-test/target/debug/gui")
-                    .spawn()
-                    .unwrap();
-
+            let path = spawn_daemon();
             let client_id = handle.join().unwrap();
 
             // x11 stuff
@@ -86,7 +94,7 @@ impl Editor for IPCEditor {
 
             return Box::new(Instance {
                 window_handle,
-                child_handle,
+                daemon_path: path,
             });
         }
         Box::new(())
@@ -105,4 +113,25 @@ impl Editor for IPCEditor {
     fn param_modulation_changed(&self, _id: &str, _modulation_offset: f32) {}
 
     fn param_values_changed(&self) {}
+}
+
+fn spawn_daemon() -> String {
+    let stdout = File::create("/tmp/daemon.out").unwrap();
+    let stderr = File::create("/tmp/daemon.err").unwrap();
+
+    let pid_path = "/home/kaya/projects/audio-dev/ipc-test/test.pid";
+    let daemonize = Daemonize::new()
+        .working_directory("/home/kaya/projects/audio-dev/ipc-test/")
+        .pid_file(pid_path) // Every method except `new` and `start`
+        .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
+        .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
+
+    match daemonize.start() {
+        Ok(_) => {
+            println!("Success, daemonized");
+            gui::run().unwrap();
+        }
+        Err(e) => eprintln!("Error, {}", e),
+    }
+    pid_path.to_owned()
 }
