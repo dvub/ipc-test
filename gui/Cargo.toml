@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+daemonize = "0.5.0"
 gtk = "0.18.1"
 interprocess = "2.2.1"
 raw-window-handle = "0.5"

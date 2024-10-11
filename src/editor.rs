@@ -1,5 +1,4 @@
 use std::{
-    os::unix::process::CommandExt,
     process::{Child, Command},
     thread::spawn,
 };
@@ -9,8 +8,9 @@ use baseview::{
     WindowScalePolicy,
 };
 use nih_plug::editor::{Editor, ParentWindowHandle};
+use x11rb::protocol::xproto::reparent_window;
 
-use crate::{editor, thread};
+use crate::thread::get_client_id;
 
 #[derive(Default)]
 pub struct IPCEditor {}
@@ -20,11 +20,11 @@ impl IPCEditor {}
 struct Handler {}
 
 impl WindowHandler for Handler {
-    fn on_frame(&mut self, window: &mut Window) {
+    fn on_frame(&mut self, _window: &mut Window) {
         // println!("hi");
     }
 
-    fn on_event(&mut self, window: &mut Window, event: Event) -> EventStatus {
+    fn on_event(&mut self, _window: &mut Window, _event: Event) -> EventStatus {
         EventStatus::Ignored
     }
 }
@@ -56,19 +56,33 @@ impl Editor for IPCEditor {
             title: "Plug-in".to_owned(),
         };
 
-        if let ParentWindowHandle::X11Window(id) = parent {
-            println!("Parent window handle:{}", id);
-            spawn(move || {
-                thread::listen_for_client_id(id).unwrap();
-            });
+        // TODO:
+        // fix this massive if let
+        if let ParentWindowHandle::X11Window(embedder_id) = parent {
+            // println!("Parent window handle:{}", embedder_id);
+
+            let window_handle =
+                baseview::Window::open_parented(&parent, options, move |_| Handler {});
+
+            // TODO:
+            // this could all go horribly wrong
+            // what happens then?
+            let handle = spawn(move || get_client_id().unwrap());
 
             let child_handle =
                 Command::new("/home/kaya/projects/audio-dev/ipc-test/target/debug/gui")
                     .spawn()
                     .unwrap();
 
-            let window_handle =
-                baseview::Window::open_parented(&parent, options, move |window| Handler {});
+            let client_id = handle.join().unwrap();
+
+            // x11 stuff
+            // TODO:
+            // - should we store this x11 connection for later?
+            // - improve error handling here
+            let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+            let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
+            c.check().unwrap();
 
             return Box::new(Instance {
                 window_handle,

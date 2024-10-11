@@ -1,11 +1,7 @@
 use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
 use std::io::{self, prelude::*, BufReader};
-use x11rb::connection::RequestConnection;
 
-use std::thread::spawn;
-use x11rb::protocol::xproto::reparent_window;
-
-pub fn listen_for_client_id(parent: u32) -> anyhow::Result<()> {
+pub fn get_client_id() -> anyhow::Result<u32> {
     // Define a function that checks for errors in incoming connections. We'll use this to filter
     // through connections that fail on initialization for one reason or another.
     fn handle_error(conn: io::Result<Stream>) -> Option<Stream> {
@@ -50,6 +46,7 @@ pub fn listen_for_client_id(parent: u32) -> anyhow::Result<()> {
     // The syncronization between the server and client, if any is used, goes here.
     eprintln!("Server running at {printname}");
     let mut buffer = [0; 4];
+
     #[allow(clippy::never_loop)]
     for conn in listener.incoming().filter_map(handle_error) {
         // Wrap the connection into a buffered receiver right away
@@ -71,17 +68,13 @@ pub fn listen_for_client_id(parent: u32) -> anyhow::Result<()> {
         // `Write`.)
         conn.get_mut().write_all(b"Hello from server!\n")?;
 
-        let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
-        let c = reparent_window(&x_conn, incoming, parent, 100, 100).unwrap();
-
-        c.check().unwrap();
-        break;
-        // Print out the result, getting the newline for free!
-
-        // Clear the buffer so that the next iteration will display new data instead of messages
-        // stacking on top of one another.
-        // buffer.clear();
+        return Ok(incoming);
     }
-    println!("loop done");
-    Ok(())
+    // println!("loop done");
+
+    // theoretically this shouldn't ever happen
+    // so...
+    // TODO:
+    // make this an error
+    Ok(0)
 }

@@ -1,6 +1,6 @@
 use interprocess::local_socket::{prelude::*, GenericFilePath, GenericNamespaced, Stream};
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use std::io::{prelude::*, BufReader};
+use raw_window_handle::HasRawWindowHandle;
+use std::io::prelude::*;
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -48,7 +48,8 @@ pub fn main() -> std::io::Result<()> {
         .build()
         .expect("build failed..");
 
-    window.set_visible(false);
+    // window.set_visible(false);
+
     let raw_handle = window.raw_window_handle();
     if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
         let id_u32 = xlib_handle.window as u32;

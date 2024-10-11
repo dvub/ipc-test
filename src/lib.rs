@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+    Arc,
 };
 
 mod editor;
