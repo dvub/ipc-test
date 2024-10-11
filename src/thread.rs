@@ -3,12 +3,13 @@ use crate::{PluginParams, SerializableParams};
 use serde_json::json;
 
 use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
-use std::io::{self, prelude::*};
+use std::io::{self, prelude::*, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::spawn;
+use x11rb::protocol::xproto::reparent_window;
 
-pub fn ipc_server_listener(params_clone: Arc<PluginParams>, should_cancel: Arc<AtomicBool>) {
+pub fn ipc_server_listener(parent: u32) {
     // a thread appears!
     spawn(move || {
         // Define a function that checks for errors in incoming connections. We'll use this to filter
@@ -29,8 +30,6 @@ pub fn ipc_server_listener(params_clone: Arc<PluginParams>, should_cancel: Arc<A
 
         // Configure our listener...
         let opts = ListenerOptions::new().name(name);
-
-        let mut buffer = [0; 128];
 
         // ...then create it.
         let listener = match opts.create_sync() {
@@ -56,31 +55,36 @@ pub fn ipc_server_listener(params_clone: Arc<PluginParams>, should_cancel: Arc<A
 
         // The syncronization between the server and client, if any is used, goes here.
         eprintln!("Server running at {printname}");
+        let mut buffer = [0; 4];
 
-        if let Some(mut conn) = listener.incoming().filter_map(handle_error).next() {
-            loop {
-                if should_cancel.load(Ordering::Relaxed) {
-                    println!("Received cancellation token. Terminating loop!")
-                }
+        for conn in listener.incoming().filter_map(handle_error) {
+            // Wrap the connection into a buffered receiver right away
+            // so that we could receive a single line from it.
+            let mut conn = BufReader::new(conn);
+            println!("Incoming connection!");
 
-                let num_bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
-                let _message = String::from_utf8(buffer[..num_bytes_read].to_vec()).unwrap();
-                // println!("Server received: {}", message);
-                // println!("Sending a new message..");
+            // Since our client example sends first, the server should receive a line and only then
+            // send a response. Otherwise, because receiving from and sending to a connection cannot
+            // be simultaneous without threads or async, we can deadlock the two processes by having
+            // both sides wait for the send buffer to be emptied by the other.
+            conn.read(&mut buffer)?;
 
-                let gain = params_clone.gain.value();
-                let serializable_params = SerializableParams { gain };
+            // Now that the receive has come through and the client is waiting on the server's send, do
+            // it. (`.get_mut()` is to get the sender, `BufReader` doesn't implement a pass-through
+            // `Write`.)
+            conn.get_mut().write_all(b"Hello from server!\n")?;
+            let incoming = u32::from_ne_bytes(buffer);
+            println!("HI: {}", u32::from_ne_bytes(buffer));
 
-                let json_string = json!(serializable_params).to_string();
-                let message_as_bytes = json_string.as_bytes();
-                conn.write_all(message_as_bytes)
-                    .expect("Failed to write to socket");
+            let (conn, _screen_num) = x11rb::connect(None).unwrap();
+            reparent_window(&conn, incoming, parent, 0, 0).unwrap();
+            // Print out the result, getting the newline for free!
 
-                // TODO:
-                // is this necessary?
-                buffer = [0; 128];
-            }
+            // Clear the buffer so that the next iteration will display new data instead of messages
+            // stacking on top of one another.
+            // buffer.clear();
         }
+
         Ok(())
     });
 }

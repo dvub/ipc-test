@@ -100,6 +100,7 @@ impl Plugin for IPCPlugin {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         nih_log!("Initialized!");
+
         true
     }
 

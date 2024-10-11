@@ -1,6 +1,8 @@
 use std::{os::unix::process::CommandExt, process::Command};
 
-use nih_plug::editor::Editor;
+use nih_plug::editor::{Editor, ParentWindowHandle};
+
+use crate::{editor, thread};
 
 #[derive(Default)]
 pub struct IPCEditor {}
@@ -10,9 +12,13 @@ impl IPCEditor {}
 impl Editor for IPCEditor {
     fn spawn(
         &self,
-        _parent: nih_plug::prelude::ParentWindowHandle,
+        parent: nih_plug::prelude::ParentWindowHandle,
         _context: std::sync::Arc<dyn nih_plug::prelude::GuiContext>,
     ) -> Box<dyn std::any::Any + Send> {
+        if let ParentWindowHandle::X11Window(id) = parent {
+            println!("Parent window handle:{}", id);
+            thread::ipc_server_listener(id);
+        }
         // TODO:
         // make cross platform
 
