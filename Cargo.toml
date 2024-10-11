@@ -16,6 +16,7 @@ serde = "1.0.210"
 serde_json = "1.0.128"
 anyhow = "1.0.89"
 gui = { path = "gui" }
+x11rb = "0.13.1"
 # nih_plug_vizia = { git = "https://github.com/robbert-vdh/nih-plug.git" }
 
 [workspace]

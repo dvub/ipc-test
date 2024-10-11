@@ -1,6 +1,7 @@
 use tao::{
     dpi::{LogicalPosition, LogicalSize},
     event_loop::EventLoop,
+    rwh_06::{HasWindowHandle, XlibWindowHandle},
     window::WindowBuilder,
 };
 use wry::{Rect, WebViewBuilder};
@@ -13,6 +14,8 @@ pub fn main() {
         .with_inner_size(window_size)
         .build(&event_loop)
         .unwrap();
+
+    let raw = window.id();
 
     // #[cfg(not(target_os = "linux"))]
     let builder = WebViewBuilder::new_as_child(&window);
