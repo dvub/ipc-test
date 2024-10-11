@@ -18,26 +18,16 @@ pub fn main() -> std::io::Result<()> {
         .unwrap();
 
     let raw_handle = window.raw_window_handle();
-    if let tao::rwh_05::RawWindowHandle::Xcb(w) = raw_handle {
-        send_id(w.window);
+    if let tao::rwh_05::RawWindowHandle::Xlib(w) = raw_handle {
+        send_id(w.window as u32);
     } else {
         println!("sending nothing.");
     }
 
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "android"
-    ))]
+    #[cfg(any(target_os = "windows", target_os = "macos",))]
     let builder = WebViewBuilder::new(&window);
 
-    #[cfg(not(any(
-        target_os = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "android"
-    )))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos",)))]
     let builder = {
         use tao::platform::unix::WindowExtUnix;
         use wry::WebViewBuilderExtUnix;

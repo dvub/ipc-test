@@ -1,5 +1,6 @@
 use editor::IPCEditor;
 use nih_plug::prelude::*;
+
 use serde::Serialize;
 use thread::ipc_server_listener;
 
@@ -114,7 +115,6 @@ impl Plugin for IPCPlugin {
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         Some(Box::new(IPCEditor::default()))
     }
-
     fn process(
         &mut self,
         buffer: &mut Buffer,
