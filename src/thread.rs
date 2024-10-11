@@ -1,15 +1,11 @@
-use crate::{PluginParams, SerializableParams};
-
-use serde_json::json;
-
 use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
 use std::io::{self, prelude::*, BufReader};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use x11rb::connection::RequestConnection;
+
 use std::thread::spawn;
 use x11rb::protocol::xproto::reparent_window;
 
-pub fn ipc_server_listener(parent: u32) -> anyhow::Result<()> {
+pub fn listen_for_client_id(parent: u32) -> anyhow::Result<()> {
     // Define a function that checks for errors in incoming connections. We'll use this to filter
     // through connections that fail on initialization for one reason or another.
     fn handle_error(conn: io::Result<Stream>) -> Option<Stream> {
@@ -54,34 +50,38 @@ pub fn ipc_server_listener(parent: u32) -> anyhow::Result<()> {
     // The syncronization between the server and client, if any is used, goes here.
     eprintln!("Server running at {printname}");
     let mut buffer = [0; 4];
-
+    #[allow(clippy::never_loop)]
     for conn in listener.incoming().filter_map(handle_error) {
         // Wrap the connection into a buffered receiver right away
         // so that we could receive a single line from it.
         let mut conn = BufReader::new(conn);
-        println!("Incoming connection!");
+
+        // println!("Incoming connection!");
 
         // Since our client example sends first, the server should receive a line and only then
         // send a response. Otherwise, because receiving from and sending to a connection cannot
         // be simultaneous without threads or async, we can deadlock the two processes by having
         // both sides wait for the send buffer to be emptied by the other.
-        conn.read(&mut buffer)?;
+        conn.read_exact(&mut buffer)?;
+        let incoming = u32::from_be_bytes(buffer);
+        println!("Client ID: {}", incoming);
 
         // Now that the receive has come through and the client is waiting on the server's send, do
         // it. (`.get_mut()` is to get the sender, `BufReader` doesn't implement a pass-through
         // `Write`.)
         conn.get_mut().write_all(b"Hello from server!\n")?;
-        let incoming = u32::from_ne_bytes(buffer);
-        println!("HI: {}", u32::from_ne_bytes(buffer));
 
-        let (conn, _screen_num) = x11rb::connect(None).unwrap();
-        reparent_window(&conn, incoming, parent, 0, 0).unwrap();
+        let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+        let c = reparent_window(&x_conn, incoming, parent, 100, 100).unwrap();
+
+        c.check().unwrap();
+        break;
         // Print out the result, getting the newline for free!
 
         // Clear the buffer so that the next iteration will display new data instead of messages
         // stacking on top of one another.
         // buffer.clear();
     }
-
+    println!("loop done");
     Ok(())
 }

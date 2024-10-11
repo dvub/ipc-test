@@ -17,13 +17,6 @@ pub fn main() -> std::io::Result<()> {
         .build(&event_loop)
         .unwrap();
 
-    let raw_handle = window.raw_window_handle();
-    if let tao::rwh_05::RawWindowHandle::Xlib(w) = raw_handle {
-        send_id(w.window as u32);
-    } else {
-        println!("sending nothing.");
-    }
-
     #[cfg(any(target_os = "windows", target_os = "macos",))]
     let builder = WebViewBuilder::new(&window);
 
@@ -55,6 +48,13 @@ pub fn main() -> std::io::Result<()> {
         .build()
         .expect("build failed..");
 
+    window.set_visible(false);
+    let raw_handle = window.raw_window_handle();
+    if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
+        let id_u32 = xlib_handle.window as u32;
+        send_id(id_u32);
+    }
+    println!("CLIENT: beginning event loop.");
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
@@ -69,7 +69,6 @@ pub fn main() -> std::io::Result<()> {
 }
 
 fn send_id(id: u32) {
-    println!("TRYING.. {id}");
     let name = if GenericNamespaced::is_supported() {
         "example.sock".to_ns_name::<GenericNamespaced>().unwrap()
     } else {
@@ -79,10 +78,10 @@ fn send_id(id: u32) {
     let mut buffer = [0; 128];
 
     // --- 1. WRITE (OUT) ---
-    conn.write_all(&id.to_ne_bytes())
+    conn.write_all(&id.to_be_bytes())
         .expect("Failed to send ping");
     conn.write_all(b"\n").expect("Failed to send ping");
 
     // --- 2. READ (IN) ---
-    let bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
+    let _bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
 }

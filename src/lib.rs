@@ -2,7 +2,6 @@ use editor::IPCEditor;
 use nih_plug::prelude::*;
 
 use serde::Serialize;
-use thread::ipc_server_listener;
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},

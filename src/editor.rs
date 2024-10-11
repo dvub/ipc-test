@@ -1,7 +1,12 @@
-use std::{os::unix::process::CommandExt, process::Command};
+use std::{
+    os::unix::process::CommandExt,
+    process::{Child, Command},
+    thread::spawn,
+};
 
 use baseview::{
-    Event, EventStatus, Size, Window, WindowHandler, WindowOpenOptions, WindowScalePolicy,
+    Event, EventStatus, Size, Window, WindowHandle, WindowHandler, WindowOpenOptions,
+    WindowScalePolicy,
 };
 use nih_plug::editor::{Editor, ParentWindowHandle};
 
@@ -12,10 +17,9 @@ pub struct IPCEditor {}
 
 impl IPCEditor {}
 
-struct Re {}
-unsafe impl Send for Re {}
+struct Handler {}
 
-impl WindowHandler for Re {
+impl WindowHandler for Handler {
     fn on_frame(&mut self, window: &mut Window) {
         // println!("hi");
     }
@@ -25,7 +29,17 @@ impl WindowHandler for Re {
     }
 }
 
-struct Instance {}
+unsafe impl Send for Instance {}
+struct Instance {
+    window_handle: WindowHandle,
+    child_handle: Child,
+}
+impl Drop for Instance {
+    fn drop(&mut self) {
+        self.window_handle.close();
+        self.child_handle.kill().unwrap();
+    }
+}
 
 impl Editor for IPCEditor {
     fn spawn(
@@ -36,26 +50,36 @@ impl Editor for IPCEditor {
         let options = WindowOpenOptions {
             scale: WindowScalePolicy::SystemScaleFactor,
             size: Size {
-                width: 200.0,
-                height: 200.0,
+                width: 720.0,
+                height: 720.0,
             },
             title: "Plug-in".to_owned(),
         };
 
         if let ParentWindowHandle::X11Window(id) = parent {
             println!("Parent window handle:{}", id);
-            thread::ipc_server_listener(id);
+            spawn(move || {
+                thread::listen_for_client_id(id).unwrap();
+            });
+
+            let child_handle =
+                Command::new("/home/kaya/projects/audio-dev/ipc-test/target/debug/gui")
+                    .spawn()
+                    .unwrap();
+
+            let window_handle =
+                baseview::Window::open_parented(&parent, options, move |window| Handler {});
+
+            return Box::new(Instance {
+                window_handle,
+                child_handle,
+            });
         }
-        let handle = baseview::Window::open_parented(&parent, options, move |window| Re {});
-
-        // TODO:
-        // make cross platform
-
-        Box::new(Instance {})
+        Box::new(())
     }
 
     fn size(&self) -> (u32, u32) {
-        (100, 100)
+        (720, 720)
     }
 
     fn set_scale_factor(&self, _factor: f32) -> bool {
