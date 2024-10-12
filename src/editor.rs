@@ -2,7 +2,8 @@ use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
     process::{Child, Command},
-    thread::spawn,
+    thread::{sleep, spawn},
+    time::Duration,
 };
 
 use baseview::{
@@ -38,19 +39,14 @@ impl WindowHandler for Handler {
 unsafe impl Send for Instance {}
 struct Instance {
     window_handle: WindowHandle,
-    daemon_path: String,
+    daemon_path: Child,
 }
 impl Drop for Instance {
     fn drop(&mut self) {
         // close process
         self.window_handle.close();
 
-        let pid = read_to_string(&self.daemon_path).expect("Unable to read PID file");
-        let o = Command::new("kill")
-            .arg("-9")
-            .arg(pid.trim())
-            .output()
-            .unwrap();
+        self.daemon_path.kill().unwrap()
     }
 }
 
@@ -77,11 +73,13 @@ impl Editor for IPCEditor {
             let window_handle =
                 baseview::Window::open_parented(&parent, options, move |_| Handler {});
 
-            // TODO:
-            // this could all go horribly wrong
-            // what happens then?
+            // start IPC server
             let handle = spawn(move || get_client_id().unwrap());
-            let path = spawn_daemon();
+            // start GUI, which communicates with IPC server
+            let h = Command::new("/run/media/kaya/Media/projects/rust/ipc-test/target/debug/gui")
+                .spawn()
+                .unwrap();
+            // wait until we get some response from our IPC server
             let client_id = handle.join().unwrap();
 
             // x11 stuff
@@ -94,7 +92,7 @@ impl Editor for IPCEditor {
 
             return Box::new(Instance {
                 window_handle,
-                daemon_path: path,
+                daemon_path: h,
             });
         }
         Box::new(())
@@ -119,9 +117,9 @@ fn spawn_daemon() -> String {
     let stdout = File::create("/tmp/daemon.out").unwrap();
     let stderr = File::create("/tmp/daemon.err").unwrap();
 
-    let pid_path = "/home/kaya/projects/audio-dev/ipc-test/test.pid";
+    let pid_path = "/run/media/kaya/Media/projects/rust/ipc-test/test.pid";
     let daemonize = Daemonize::new()
-        .working_directory("/home/kaya/projects/audio-dev/ipc-test/")
+        .working_directory("/run/media/kaya/Media/projects/rust/ipc-test")
         .pid_file(pid_path) // Every method except `new` and `start`
         .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
         .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
