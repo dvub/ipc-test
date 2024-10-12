@@ -1,4 +1,4 @@
-use interprocess::local_socket::{prelude::*, GenericFilePath, GenericNamespaced, Stream};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, Stream};
 use raw_window_handle::HasRawWindowHandle;
 use std::io::prelude::*;
 use tao::{
@@ -74,13 +74,9 @@ fn send_id(id: u32) {
     let name = printname.to_ns_name::<GenericNamespaced>().unwrap();
 
     let mut conn = Stream::connect(name).expect("couldnt connect to socket");
-    let mut buffer = [0; 128];
 
     // --- 1. WRITE (OUT) ---
     conn.write_all(&id.to_be_bytes())
         .expect("Failed to send ping");
     conn.write_all(b"\n").expect("Failed to send ping");
-
-    // --- 2. READ (IN) ---
-    let _bytes_read = conn.read(&mut buffer).expect("Failed to read from socket");
 }

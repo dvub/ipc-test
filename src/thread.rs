@@ -1,21 +1,7 @@
-use interprocess::local_socket::{
-    prelude::*, GenericFilePath, GenericNamespaced, ListenerOptions, Stream,
-};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
 use std::io::{self, prelude::*, BufReader};
 
 pub fn get_client_id() -> anyhow::Result<u32> {
-    // Define a function that checks for errors in incoming connections. We'll use this to filter
-    // through connections that fail on initialization for one reason or another.
-    fn handle_error(conn: io::Result<Stream>) -> Option<Stream> {
-        match conn {
-            Ok(c) => Some(c),
-            Err(e) => {
-                eprintln!("Incoming connection failed: {e}");
-                None
-            }
-        }
-    }
-
     // Pick a name.
     let printname = "example.sock";
     let name = printname.to_ns_name::<GenericNamespaced>()?;
@@ -47,6 +33,7 @@ pub fn get_client_id() -> anyhow::Result<u32> {
 
     // The syncronization between the server and client, if any is used, goes here.
     eprintln!("Server running at {printname}");
+    // u32 buffer thing
     let mut buffer = [0; 4];
 
     let conn = listener.accept().unwrap();
@@ -63,11 +50,6 @@ pub fn get_client_id() -> anyhow::Result<u32> {
     conn.read_exact(&mut buffer)?;
     let incoming = u32::from_be_bytes(buffer);
     println!("Client ID: {}", incoming);
-
-    // Now that the receive has come through and the client is waiting on the server's send, do
-    // it. (`.get_mut()` is to get the sender, `BufReader` doesn't implement a pass-through
-    // `Write`.)
-    conn.get_mut().write_all(b"Hello from server!\n")?;
 
     Ok(incoming)
 }

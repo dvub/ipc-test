@@ -1,9 +1,6 @@
 use std::{
-    fs::read_to_string,
-    path::{Path, PathBuf},
     process::{Child, Command},
-    thread::{sleep, spawn},
-    time::Duration,
+    thread::spawn,
 };
 
 use baseview::{
@@ -14,10 +11,6 @@ use nih_plug::editor::{Editor, ParentWindowHandle};
 use x11rb::protocol::xproto::reparent_window;
 
 use crate::thread::get_client_id;
-
-use std::fs::File;
-
-use daemonize::Daemonize;
 
 #[derive(Default)]
 pub struct IPCEditor {}
@@ -111,25 +104,4 @@ impl Editor for IPCEditor {
     fn param_modulation_changed(&self, _id: &str, _modulation_offset: f32) {}
 
     fn param_values_changed(&self) {}
-}
-
-fn spawn_daemon() -> String {
-    let stdout = File::create("/tmp/daemon.out").unwrap();
-    let stderr = File::create("/tmp/daemon.err").unwrap();
-
-    let pid_path = "/run/media/kaya/Media/projects/rust/ipc-test/test.pid";
-    let daemonize = Daemonize::new()
-        .working_directory("/run/media/kaya/Media/projects/rust/ipc-test")
-        .pid_file(pid_path) // Every method except `new` and `start`
-        .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
-        .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
-
-    match daemonize.start() {
-        Ok(_) => {
-            println!("Success, daemonized");
-            gui::run().unwrap();
-        }
-        Err(e) => eprintln!("Error, {}", e),
-    }
-    pid_path.to_owned()
 }
