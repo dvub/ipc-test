@@ -1,4 +1,5 @@
-use interprocess::local_socket::{prelude::*, GenericNamespaced, Stream};
+use daemonize::Daemonize;
+use interprocess::local_socket::{prelude::*, GenericFilePath, GenericNamespaced, Stream};
 use raw_window_handle::HasRawWindowHandle;
 use std::io::prelude::*;
 use tao::{
@@ -48,13 +49,14 @@ pub fn run() -> std::io::Result<()> {
         .build()
         .expect("build failed..");
 
-    // window.set_visible(false);
-
     let raw_handle = window.raw_window_handle();
     if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
+        println!("HIII");
         let id_u32 = xlib_handle.window as u32;
         send_id(id_u32);
     }
+
+    // window.set_visible(false);
     println!("CLIENT: beginning event loop.");
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -72,11 +74,29 @@ pub fn run() -> std::io::Result<()> {
 fn send_id(id: u32) {
     let printname = "example.sock";
     let name = printname.to_ns_name::<GenericNamespaced>().unwrap();
-
     let mut conn = Stream::connect(name).expect("couldnt connect to socket");
 
     // --- 1. WRITE (OUT) ---
     conn.write_all(&id.to_be_bytes())
         .expect("Failed to send ping");
     conn.write_all(b"\n").expect("Failed to send ping");
+}
+use std::fs::File;
+
+pub fn daemon() -> String {
+    let pid_file = "/tmp/test.pid";
+    let stdout = File::create("/tmp/daemon.out").unwrap();
+    let stderr = File::create("/tmp/daemon.err").unwrap();
+
+    let daemonize = Daemonize::new()
+        .pid_file(pid_file) // Every method except `new` and `start`
+        .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
+        .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
+
+    let _ = match daemonize.execute() {
+        daemonize::Outcome::Parent(_) => Ok(()),
+        daemonize::Outcome::Child(_) => run(),
+    };
+
+    String::from(pid_file)
 }

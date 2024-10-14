@@ -1081,6 +1081,7 @@ dependencies = [
 name = "gui"
 version = "0.1.0"
 dependencies = [
+ "daemonize",
  "gtk",
  "interprocess",
  "raw-window-handle 0.5.2",

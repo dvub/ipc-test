@@ -5,7 +5,7 @@ pub fn get_client_id() -> anyhow::Result<u32> {
     // Pick a name.
     let printname = "example.sock";
     let name = printname.to_ns_name::<GenericNamespaced>()?;
-
+    println!("NAME: {:?}", name);
     // Configure our listener...
     let opts = ListenerOptions::new().name(name);
 

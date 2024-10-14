@@ -11,3 +11,4 @@ raw-window-handle = "0.5"
 tao = { version = "0.30.3", features = ["rwh_05"] }
 wry = "0.45.0"
 x11rb = "0.13.1"
+daemonize = "0.5.0"

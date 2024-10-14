@@ -1,12 +1,16 @@
 use std::{
+    fs::{read_to_string, File},
+    io::Read,
     process::{Child, Command},
-    thread::spawn,
+    thread::{sleep, spawn},
+    time::Duration,
 };
 
 use baseview::{
     Event, EventStatus, Size, Window, WindowHandle, WindowHandler, WindowOpenOptions,
     WindowScalePolicy,
 };
+use daemonize::Daemonize;
 use nih_plug::editor::{Editor, ParentWindowHandle};
 use x11rb::protocol::xproto::reparent_window;
 
@@ -32,14 +36,24 @@ impl WindowHandler for Handler {
 unsafe impl Send for Instance {}
 struct Instance {
     window_handle: WindowHandle,
-    daemon_path: Child,
+    daemon_path: String,
 }
 impl Drop for Instance {
     fn drop(&mut self) {
         // close process
         self.window_handle.close();
-
-        self.daemon_path.kill().unwrap()
+        println!("{}", self.daemon_path.clone());
+        let pid = read_to_string(self.daemon_path.clone())
+            .unwrap()
+            .trim()
+            .parse::<i32>()
+            .unwrap();
+        let o = Command::new("kill")
+            .arg("-9")
+            .arg(pid.to_string())
+            .output()
+            .unwrap();
+        println!("{}", String::from_utf8(o.stderr).unwrap());
     }
 }
 
@@ -68,10 +82,11 @@ impl Editor for IPCEditor {
 
             // start IPC server
             let handle = spawn(move || get_client_id().unwrap());
+            sleep(Duration::from_secs(1));
             // start GUI, which communicates with IPC server
-            let h = Command::new("/run/media/kaya/Media/projects/rust/ipc-test/target/debug/gui")
-                .spawn()
-                .unwrap();
+            println!("hi 1");
+            let h = gui::daemon();
+            println!("hi 2");
             // wait until we get some response from our IPC server
             let client_id = handle.join().unwrap();
 
