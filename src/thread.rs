@@ -1,14 +1,13 @@
-use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Stream};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions};
 use std::io::{self, prelude::*, BufReader};
 
-pub fn get_client_id() -> anyhow::Result<u32> {
+pub fn listen_for_client_id() -> anyhow::Result<u32> {
     // Pick a name.
-    let printname = "example.sock";
+    let printname = "IPC_TEST.sock";
+
     let name = printname.to_ns_name::<GenericNamespaced>()?;
-    println!("NAME: {:?}", name);
     // Configure our listener...
     let opts = ListenerOptions::new().name(name);
-
     // ...then create it.
     let listener = match opts.create_sync() {
         Err(e) if e.kind() == io::ErrorKind::AddrInUse => {

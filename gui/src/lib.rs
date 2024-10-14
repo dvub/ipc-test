@@ -1,14 +1,17 @@
 use daemonize::Daemonize;
-use interprocess::local_socket::{prelude::*, GenericFilePath, GenericNamespaced, Stream};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, Stream};
 use raw_window_handle::HasRawWindowHandle;
-use std::io::prelude::*;
+use std::fs::File;
+use std::{fs::read_to_string, io::prelude::*};
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use tempdir::TempDir;
 use wry::WebViewBuilder;
+
 pub fn run() -> std::io::Result<()> {
     let window_size = LogicalSize::new(720, 720);
 
@@ -51,12 +54,10 @@ pub fn run() -> std::io::Result<()> {
 
     let raw_handle = window.raw_window_handle();
     if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
-        println!("HIII");
         let id_u32 = xlib_handle.window as u32;
         send_id(id_u32);
     }
 
-    // window.set_visible(false);
     println!("CLIENT: beginning event loop.");
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -81,22 +82,36 @@ fn send_id(id: u32) {
         .expect("Failed to send ping");
     conn.write_all(b"\n").expect("Failed to send ping");
 }
-use std::fs::File;
 
-pub fn daemon() -> String {
-    let pid_file = "/tmp/test.pid";
+pub fn start_daemon() -> usize {
+    let directory = TempDir::new("IPC_TEST").unwrap();
+    let pid_path = directory.path().join("test.pid");
+
     let stdout = File::create("/tmp/daemon.out").unwrap();
     let stderr = File::create("/tmp/daemon.err").unwrap();
 
     let daemonize = Daemonize::new()
-        .pid_file(pid_file) // Every method except `new` and `start`
+        .pid_file(&pid_path) // Every method except `new` and `start`
         .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
         .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
 
-    let _ = match daemonize.execute() {
-        daemonize::Outcome::Parent(_) => Ok(()),
-        daemonize::Outcome::Child(_) => run(),
+    match daemonize.execute() {
+        daemonize::Outcome::Parent(_p) => {}
+        daemonize::Outcome::Child(_) => {
+            let _ = run();
+        }
     };
 
-    String::from(pid_file)
+    // immediately after starting the daemon, retreive the PID from the file
+    let pid = read_to_string(pid_path)
+        .unwrap()
+        .trim()
+        .parse::<usize>()
+        .unwrap();
+
+    // todo?
+    // drop(tmp_file);
+    // tmp_dir.close()?;
+
+    pid
 }
