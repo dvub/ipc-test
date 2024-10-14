@@ -1,11 +1,7 @@
-use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions, Name, Stream};
 use std::io::{self, prelude::*, BufReader};
 
-pub fn listen_for_client_id() -> anyhow::Result<u32> {
-    // Pick a name.
-    let printname = "IPC_TEST.sock";
-
-    let name = printname.to_ns_name::<GenericNamespaced>()?;
+pub fn listen_for_client_id(name: Name) -> anyhow::Result<u32> {
     // Configure our listener...
     let opts = ListenerOptions::new().name(name);
     // ...then create it.
@@ -23,7 +19,7 @@ pub fn listen_for_client_id() -> anyhow::Result<u32> {
             // up to the user, but in a real application, you usually don't want to do that.
             eprintln!(
                 "Error: could not start server because the socket file is occupied. Please check if
-                        {printname} is in use by another process and try again."
+                        is in use by another process and try again."
             );
             return Err(e.into());
         }
@@ -31,7 +27,7 @@ pub fn listen_for_client_id() -> anyhow::Result<u32> {
     };
 
     // The syncronization between the server and client, if any is used, goes here.
-    eprintln!("Server running at {printname}");
+    // eprintln!("Server running at {printname}");
     // u32 buffer thing
     let mut buffer = [0; 4];
 
@@ -51,4 +47,33 @@ pub fn listen_for_client_id() -> anyhow::Result<u32> {
     println!("Client ID: {}", incoming);
 
     Ok(incoming)
+}
+
+pub fn get_open_socket_name() -> Name<'static> {
+    let mut open = false;
+    let mut iteration = 0;
+    let mut printname = format!("IPC_TEST{}.sock", iteration);
+
+    while !open {
+        printname = format!("IPC_TEST{}.sock", iteration);
+        // FIX THIS CLONE
+        let name = printname.clone().to_ns_name::<GenericNamespaced>().unwrap();
+
+        open = is_socket_open(name);
+
+        iteration += 1;
+    }
+    printname.clone().to_ns_name::<GenericNamespaced>().unwrap()
+}
+
+fn is_socket_open(name: Name) -> bool {
+    Stream::connect(name).is_err()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_open_socket_name;
+
+    // TODO:
+    // make tests actually good ?!
 }

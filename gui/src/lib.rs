@@ -1,5 +1,5 @@
 use daemonize::Daemonize;
-use interprocess::local_socket::{prelude::*, GenericNamespaced, Stream};
+use interprocess::local_socket::{prelude::*, GenericNamespaced, Name, Stream};
 use raw_window_handle::HasRawWindowHandle;
 use std::fs::File;
 use std::{fs::read_to_string, io::prelude::*};
@@ -12,7 +12,7 @@ use tao::{
 use tempdir::TempDir;
 use wry::WebViewBuilder;
 
-pub fn run() -> std::io::Result<()> {
+pub fn run(name: Name) -> std::io::Result<()> {
     let window_size = LogicalSize::new(720, 720);
 
     let event_loop = EventLoop::new();
@@ -55,7 +55,7 @@ pub fn run() -> std::io::Result<()> {
     let raw_handle = window.raw_window_handle();
     if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
         let id_u32 = xlib_handle.window as u32;
-        send_id(id_u32);
+        send_id(name, id_u32);
     }
 
     println!("CLIENT: beginning event loop.");
@@ -72,9 +72,7 @@ pub fn run() -> std::io::Result<()> {
     });
 }
 
-fn send_id(id: u32) {
-    let printname = "example.sock";
-    let name = printname.to_ns_name::<GenericNamespaced>().unwrap();
+fn send_id(name: Name, id: u32) {
     let mut conn = Stream::connect(name).expect("couldnt connect to socket");
 
     // --- 1. WRITE (OUT) ---
@@ -83,7 +81,7 @@ fn send_id(id: u32) {
     conn.write_all(b"\n").expect("Failed to send ping");
 }
 
-pub fn start_daemon() -> usize {
+pub fn start_daemon(name: Name) -> usize {
     let directory = TempDir::new("IPC_TEST").unwrap();
     let pid_path = directory.path().join("test.pid");
 
@@ -98,7 +96,7 @@ pub fn start_daemon() -> usize {
     match daemonize.execute() {
         daemonize::Outcome::Parent(_p) => {}
         daemonize::Outcome::Child(_) => {
-            let _ = run();
+            let _ = run(name);
         }
     };
 

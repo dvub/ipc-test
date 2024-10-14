@@ -10,7 +10,7 @@ use nih_plug::{
 };
 use x11rb::protocol::xproto::reparent_window;
 
-use crate::thread::listen_for_client_id;
+use crate::thread::{self, listen_for_client_id};
 
 #[derive(Default)]
 pub struct IPCEditor {}
@@ -81,11 +81,14 @@ impl Editor for IPCEditor {
                 baseview::Window::open_parented(&parent, options, move |_| Handler {});
 
             // start IPC server
-            let handle = spawn(move || listen_for_client_id().unwrap());
+            let name = thread::get_open_socket_name();
+            let name_clone = name.clone();
+
+            let handle = spawn(move || listen_for_client_id(name_clone).unwrap());
             // sleep(Duration::from_secs(1));
             // start GUI, which communicates with IPC server
 
-            let pid = gui::start_daemon();
+            let pid = gui::start_daemon(name);
 
             // wait until we get some response from our IPC server
             let client_id = handle.join().unwrap();
