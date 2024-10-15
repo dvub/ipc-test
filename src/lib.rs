@@ -10,7 +10,7 @@ use std::{
 use wry::http::{Request, Response};
 
 pub use baseview::{DropData, DropEffect, EventStatus, MouseEvent};
-pub use keyboard_types::*;
+pub use keyboard_types::KeyboardEvent;
 
 mod editor_impl;
 mod gui;

@@ -73,7 +73,7 @@ mod tests {
     fn open_socket() {
         // any silly name will do here :3
         let name = "TEST_SOCKET0_".to_ns_name::<GenericNamespaced>().unwrap();
-        assert_eq!(is_socket_open(name.clone()), true);
+        assert!(is_socket_open(name.clone()));
     }
 
     #[test]
@@ -83,7 +83,7 @@ mod tests {
         let opts = ListenerOptions::new().name(name.clone());
         let _listener = opts.create_sync().unwrap();
 
-        assert_eq!(is_socket_open(name.clone()), false);
+        assert!(!is_socket_open(name.clone()));
     }
 
     #[test]

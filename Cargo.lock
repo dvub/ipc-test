@@ -646,6 +646,8 @@ version = "0.1.0"
 dependencies = [
  "ipc-test",
  "nih_plug",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

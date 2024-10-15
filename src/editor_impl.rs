@@ -2,20 +2,25 @@ use crate::{
     gui::daemon,
     instance::Instance,
     ipc::{self, listen_for_client_id},
-    IPCEditor,
+    EventLoopHandler, IPCEditor, KeyboardHandler, MouseHandler,
 };
-use baseview::{
-    Event, EventStatus, Size, Window, WindowHandler, WindowOpenOptions, WindowScalePolicy,
-};
+
+use baseview::{Event, EventStatus};
+use keyboard_types::KeyboardEvent;
 
 use nih_plug::{
     editor::{Editor, ParentWindowHandle},
-    prelude::GuiContext,
+    prelude::{GuiContext, ParamSetter},
 };
+use serde_json::Value;
 use std::{
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
     thread::spawn,
 };
+use wry::WebView;
 use x11rb::protocol::xproto::reparent_window;
 
 impl Editor for IPCEditor {
@@ -88,7 +93,7 @@ impl Editor for IPCEditor {
 
     fn set_scale_factor(&self, _factor: f32) -> bool {
         // TODO: implement for Windows and Linux
-        return false;
+        false
     }
 
     fn param_value_changed(&self, _id: &str, _normalized_value: f32) {}
@@ -98,35 +103,19 @@ impl Editor for IPCEditor {
     fn param_values_changed(&self) {}
 }
 
-struct Handler {}
-impl WindowHandler for Handler {
-    fn on_frame(&mut self, _window: &mut Window) {
-        // println!("hi");
-    }
-
-    fn on_event(&mut self, _window: &mut Window, _event: Event) -> EventStatus {
-        EventStatus::Ignored
-    }
-}
-
-// FINAL STUFF TO IMPLEMENT FROM NIH-PLUG-WEBVIEW
-
-/*
-
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-pub struct WindowHandler {
+pub struct Handler {
     context: Arc<dyn GuiContext>,
     event_loop_handler: Arc<EventLoopHandler>,
     keyboard_handler: Arc<KeyboardHandler>,
     mouse_handler: Arc<MouseHandler>,
     webview: WebView,
-    events_receiver: Receiver<Value>,
+    // events_receiver: Receiver<Value>,
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
 }
 
-impl WindowHandler {
+impl Handler {
+    /*
     pub fn resize(&self, window: &mut baseview::Window, width: u32, height: u32) {
         self.webview.set_bounds(wry::Rect {
             x: 0,
@@ -141,7 +130,7 @@ impl WindowHandler {
             width: width as f64,
             height: height as f64,
         });
-    }
+    }*/
 
     pub fn send_json(&self, json: Value) {
         let json_str = json.to_string();
@@ -152,15 +141,17 @@ impl WindowHandler {
             .unwrap();
     }
 
+    /*
     pub fn next_event(&self) -> Result<Value, crossbeam::channel::TryRecvError> {
         self.events_receiver.try_recv()
     }
+    */
 }
 
-impl baseview::WindowHandler for WindowHandler {
+impl baseview::WindowHandler for Handler {
     fn on_frame(&mut self, window: &mut baseview::Window) {
         let setter = ParamSetter::new(&*self.context);
-        (self.event_loop_handler)(&self, setter, window);
+        (self.event_loop_handler)(self, setter, window);
     }
 
     fn on_event(&mut self, _window: &mut baseview::Window, event: Event) -> EventStatus {
@@ -177,5 +168,3 @@ impl baseview::WindowHandler for WindowHandler {
         }
     }
 }
-
-*/
