@@ -36,6 +36,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "175571dd1d178ced59193a6fc02dde1b972eb0bc56c892cde9beeceac5bf0f6b"
 
 [[package]]
+name = "assert_no_alloc"
+version = "1.1.2"
+source = "git+https://github.com/robbert-vdh/rust-assert-no-alloc.git?branch=feature/nested-permit-forbid#a6fb4f62b9624715291e320ea5f0f70e73b035cf"
+dependencies = [
+ "backtrace",
+ "log",
+]
+
+[[package]]
 name = "atk"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,6 +635,14 @@ checksum = "534c5cf6194dfab3db3242765c03bbe257cf92f22b38f6bc0c58d59108a820ba"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "ipc-test",
+ "nih_plug",
 ]
 
 [[package]]
@@ -1466,6 +1483,7 @@ source = "git+https://github.com/robbert-vdh/nih-plug.git#dfafe90349aa3d8e40922e
 dependencies = [
  "anyhow",
  "anymap",
+ "assert_no_alloc",
  "atomic_float",
  "atomic_refcell",
  "backtrace",

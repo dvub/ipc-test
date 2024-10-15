@@ -1,16 +1,15 @@
-use daemonize::Daemonize;
-use interprocess::local_socket::{prelude::*, GenericNamespaced, Name, Stream};
+use interprocess::local_socket::{prelude::*, Name, Stream};
 use raw_window_handle::HasRawWindowHandle;
-use std::fs::File;
-use std::{fs::read_to_string, io::prelude::*};
+use std::io::prelude::*;
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use tempdir::TempDir;
 use wry::WebViewBuilder;
+
+pub mod daemon;
 
 pub fn run(name: Name) -> std::io::Result<()> {
     let window_size = LogicalSize::new(720, 720);
@@ -79,37 +78,4 @@ fn send_id(name: Name, id: u32) {
     conn.write_all(&id.to_be_bytes())
         .expect("Failed to send ping");
     conn.write_all(b"\n").expect("Failed to send ping");
-}
-
-pub fn start_daemon(name: Name) -> usize {
-    let directory = TempDir::new("IPC_TEST").unwrap();
-    let pid_path = directory.path().join("test.pid");
-
-    let stdout = File::create("/tmp/daemon.out").unwrap();
-    let stderr = File::create("/tmp/daemon.err").unwrap();
-
-    let daemonize = Daemonize::new()
-        .pid_file(&pid_path) // Every method except `new` and `start`
-        .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
-        .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.
-
-    match daemonize.execute() {
-        daemonize::Outcome::Parent(_p) => {}
-        daemonize::Outcome::Child(_) => {
-            let _ = run(name);
-        }
-    };
-
-    // immediately after starting the daemon, retreive the PID from the file
-    let pid = read_to_string(pid_path)
-        .unwrap()
-        .trim()
-        .parse::<usize>()
-        .unwrap();
-
-    // todo?
-    // drop(tmp_file);
-    // tmp_dir.close()?;
-
-    pid
 }

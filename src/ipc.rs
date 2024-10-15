@@ -26,36 +26,27 @@ pub fn listen_for_client_id(name: Name) -> anyhow::Result<u32> {
         x => x?,
     };
 
-    // The syncronization between the server and client, if any is used, goes here.
-    // eprintln!("Server running at {printname}");
     // u32 buffer thing
     let mut buffer = [0; 4];
 
     let conn = listener.accept().unwrap();
-    // Wrap the connection into a buffered receiver right away
-    // so that we could receive a single line from it.
     let mut conn = BufReader::new(conn);
 
-    // println!("Incoming connection!");
-
-    // Since our client example sends first, the server should receive a line and only then
-    // send a response. Otherwise, because receiving from and sending to a connection cannot
-    // be simultaneous without threads or async, we can deadlock the two processes by having
-    // both sides wait for the send buffer to be emptied by the other.
     conn.read_exact(&mut buffer)?;
     let incoming = u32::from_be_bytes(buffer);
+
     println!("Client ID: {}", incoming);
 
     Ok(incoming)
 }
 
-pub fn get_open_socket_name() -> Name<'static> {
+pub fn get_open_socket_name(prefix: &str) -> Name<'static> {
     let mut open = false;
     let mut iteration = 0;
-    let mut printname = format!("IPC_TEST{}.sock", iteration);
+    let mut printname = String::new();
 
     while !open {
-        printname = format!("IPC_TEST{}.sock", iteration);
+        printname = format!("{}{}.sock", prefix, iteration);
         // FIX THIS CLONE
         let name = printname.clone().to_ns_name::<GenericNamespaced>().unwrap();
 
@@ -72,8 +63,57 @@ fn is_socket_open(name: Name) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::get_open_socket_name;
+    // TODO: tests are okay, but they could probably be rewritten to be cleaner.
 
-    // TODO:
-    // make tests actually good ?!
+    use super::get_open_socket_name;
+    use super::is_socket_open;
+    use interprocess::local_socket::{GenericNamespaced, ListenerOptions, ToNsName};
+
+    #[test]
+    fn open_socket() {
+        // any silly name will do here :3
+        let name = "TEST_SOCKET0_".to_ns_name::<GenericNamespaced>().unwrap();
+        assert_eq!(is_socket_open(name.clone()), true);
+    }
+
+    #[test]
+    fn occupied_socket() {
+        let name = "TEST_SOCKET00_".to_ns_name::<GenericNamespaced>().unwrap();
+
+        let opts = ListenerOptions::new().name(name.clone());
+        let _listener = opts.create_sync().unwrap();
+
+        assert_eq!(is_socket_open(name.clone()), false);
+    }
+
+    #[test]
+    fn get_first_open_name() {
+        let prefix = "TEST_SOCKET1_";
+
+        let output = get_open_socket_name(prefix);
+        let expected = "TEST_SOCKET1_0.sock"
+            .to_ns_name::<GenericNamespaced>()
+            .unwrap();
+
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn get_second_open_name() {
+        let prefix = "TEST_SOCKET2_";
+
+        let opts = ListenerOptions::new().name(
+            "TEST_SOCKET2_0.sock"
+                .to_ns_name::<GenericNamespaced>()
+                .unwrap(),
+        );
+        let _listener = opts.create_sync().unwrap();
+
+        let output = get_open_socket_name(prefix);
+        let expected = "TEST_SOCKET2_1.sock"
+            .to_ns_name::<GenericNamespaced>()
+            .unwrap();
+
+        assert_eq!(output, expected);
+    }
 }

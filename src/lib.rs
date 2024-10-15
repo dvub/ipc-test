@@ -1,163 +1,129 @@
-use editor::IPCEditor;
-use nih_plug::prelude::*;
+use std::{process::Command, sync::Arc, thread::spawn};
 
-use serde::Serialize;
-
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use baseview::{
+    Event, EventStatus, Size, Window, WindowHandle, WindowHandler, WindowOpenOptions,
+    WindowScalePolicy,
 };
+use ipc::listen_for_client_id;
+use nih_plug::{
+    editor::{Editor, ParentWindowHandle},
+    prelude::GuiContext,
+};
+use x11rb::protocol::xproto::reparent_window;
 
-mod editor;
-mod thread;
+mod ipc;
 
-#[derive(Params)]
-struct PluginParams {
-    #[id = "gain"]
-    gain: FloatParam,
+#[derive(Default)]
+pub struct IPCEditor {}
+
+impl IPCEditor {}
+
+struct Handler {}
+
+impl WindowHandler for Handler {
+    fn on_frame(&mut self, _window: &mut Window) {
+        // println!("hi");
+    }
+
+    fn on_event(&mut self, _window: &mut Window, _event: Event) -> EventStatus {
+        EventStatus::Ignored
+    }
 }
-#[derive(Serialize)]
-struct SerializableParams {
-    gain: f32,
+
+unsafe impl Send for Instance {}
+struct Instance {
+    window: WindowHandle,
+    daemon_pid: usize,
+}
+impl Drop for Instance {
+    fn drop(&mut self) {
+        self.window.close();
+        self.kill_daemon();
+    }
 }
 
-impl Default for PluginParams {
-    fn default() -> Self {
-        Self {
-            gain: FloatParam::new("Gain", 0.0, FloatRange::Linear { min: 0.0, max: 1.0 }),
+impl Instance {
+    fn kill_daemon(&mut self) {
+        let kill_output = Command::new("kill")
+            // TODO:
+            // could be -15 etc
+            .arg("-9")
+            .arg(self.daemon_pid.to_string())
+            .output()
+            .unwrap();
+
+        println!("{}", String::from_utf8(kill_output.stderr).unwrap());
+    }
+}
+
+impl Editor for IPCEditor {
+    fn spawn(
+        &self,
+        parent: ParentWindowHandle,
+        _context: Arc<dyn GuiContext>,
+    ) -> Box<dyn std::any::Any + Send> {
+        let options = WindowOpenOptions {
+            scale: WindowScalePolicy::SystemScaleFactor,
+            size: Size {
+                width: 720.0,
+                height: 720.0,
+            },
+            // TODO:
+            // change name to something cool
+            title: "Plug-in".to_owned(),
+        };
+
+        // TODO:
+        // fix this massive if let
+        if let ParentWindowHandle::X11Window(embedder_id) = parent {
+            // println!("Parent window handle:{}", embedder_id);
+
+            let window_handle =
+                baseview::Window::open_parented(&parent, options, move |_| Handler {});
+
+            // start IPC server
+            let name = ipc::get_open_socket_name("IPC_TEST");
+
+            let name_clone = name.clone();
+            let handle = spawn(move || listen_for_client_id(name_clone).unwrap());
+            // sleep(Duration::from_secs(1));
+            // start GUI, which communicates with IPC server
+
+            let pid = gui::daemon::start_daemon(name);
+
+            // wait until we get some response from our IPC server
+            let client_id = handle.join().unwrap();
+
+            // x11 stuff
+            // TODO:
+            // - should we store this x11 connection for later?
+            // - improve error handling here
+            let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+
+            let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
+            c.check().unwrap();
+
+            return Box::new(Instance {
+                window: window_handle,
+                daemon_pid: pid,
+            });
         }
+        Box::new(())
     }
+
+    fn size(&self) -> (u32, u32) {
+        // TODO:
+        // make this a field on a struct somewhere
+        (720, 720)
+    }
+
+    fn set_scale_factor(&self, _factor: f32) -> bool {
+        false
+    }
+
+    fn param_value_changed(&self, _id: &str, _normalized_value: f32) {}
+
+    fn param_modulation_changed(&self, _id: &str, _modulation_offset: f32) {}
+
+    fn param_values_changed(&self) {}
 }
-
-struct IPCPlugin {
-    params: Arc<PluginParams>,
-    should_cancel_thread: Arc<AtomicBool>,
-}
-
-impl Default for IPCPlugin {
-    fn default() -> Self {
-        let params = Arc::new(PluginParams::default());
-
-        Self {
-            params,
-            should_cancel_thread: Arc::new(AtomicBool::new(false)),
-        }
-    }
-}
-
-impl Plugin for IPCPlugin {
-    const NAME: &'static str = "IPC TEST";
-    const VENDOR: &'static str = "DVUB";
-    // You can use `env!("CARGO_PKG_HOMEPAGE")` to reference the homepage field from the
-    // `Cargo.toml` file here
-    const URL: &'static str = "TODO";
-    const EMAIL: &'static str = "TODO";
-
-    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-    // The first audio IO layout is used as the default. The other layouts may be selected either
-    // explicitly or automatically by the host or the user depending on the plugin API/backend.
-    const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[
-        AudioIOLayout {
-            main_input_channels: NonZeroU32::new(2),
-            main_output_channels: NonZeroU32::new(2),
-
-            aux_input_ports: &[],
-            aux_output_ports: &[],
-
-            // Individual ports and the layout as a whole can be named here. By default these names
-            // are generated as needed. This layout will be called 'Stereo', while the other one is
-            // given the name 'Mono' based no the number of input and output channels.
-            names: PortNames::const_default(),
-        },
-        AudioIOLayout {
-            main_input_channels: NonZeroU32::new(1),
-            main_output_channels: NonZeroU32::new(1),
-            ..AudioIOLayout::const_default()
-        },
-    ];
-
-    const MIDI_INPUT: MidiConfig = MidiConfig::None;
-    // Setting this to `true` will tell the wrapper to split the buffer up into smaller blocks
-    // whenever there are inter-buffer parameter changes. This way no changes to the plugin are
-    // required to support sample accurate automation and the wrapper handles all of the boring
-    // stuff like making sure transport and other timing information stays consistent between the
-    // splits.
-    const SAMPLE_ACCURATE_AUTOMATION: bool = true;
-
-    // If the plugin can send or receive SysEx messages, it can define a type to wrap around those
-    // messages here. The type implements the `SysExMessage` trait, which allows conversion to and
-    // from plain byte buffers.
-    type SysExMessage = ();
-    // More advanced plugins can use this to run expensive background tasks. See the field's
-    // documentation for more information. `()` means that the plugin does not have any background
-    // tasks.
-
-    fn initialize(
-        &mut self,
-        _audio_io_layout: &AudioIOLayout,
-        _buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
-    ) -> bool {
-        nih_log!("Initialized!");
-
-        true
-    }
-
-    fn params(&self) -> Arc<dyn Params> {
-        self.params.clone()
-    }
-
-    // this is a lie kind of
-    type BackgroundTask = ();
-
-    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        Some(Box::new(IPCEditor::default()))
-    }
-    fn process(
-        &mut self,
-        buffer: &mut Buffer,
-        _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
-    ) -> ProcessStatus {
-        // if we wanted to do process samples individually,
-        // it would be here
-
-        for channel_samples in buffer.iter_samples() {
-            for sample in channel_samples {
-                *sample *= self.params.gain.value();
-            }
-        }
-
-        ProcessStatus::Normal
-    }
-
-    // This can be used for cleaning up special resources like socket connections whenever the
-    // plugin is deactivated. Most plugins won't need to do anything here.
-    fn deactivate(&mut self) {
-        self.should_cancel_thread.store(true, Ordering::Relaxed);
-        nih_log!("Plugin has been deactivated. ");
-    }
-}
-
-impl ClapPlugin for IPCPlugin {
-    const CLAP_ID: &'static str = "com.moist-plugins-gmbh.gain";
-    const CLAP_DESCRIPTION: Option<&'static str> = Some("A smoothed gain parameter example plugin");
-    const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
-    const CLAP_SUPPORT_URL: Option<&'static str> = None;
-    const CLAP_FEATURES: &'static [ClapFeature] = &[
-        ClapFeature::AudioEffect,
-        ClapFeature::Stereo,
-        ClapFeature::Mono,
-        ClapFeature::Utility,
-    ];
-}
-
-impl Vst3Plugin for IPCPlugin {
-    const VST3_CLASS_ID: [u8; 16] = *b"IPCTESTDVUB12345";
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Fx, Vst3SubCategory::Tools];
-}
-
-nih_export_clap!(IPCPlugin);
-nih_export_vst3!(IPCPlugin);
