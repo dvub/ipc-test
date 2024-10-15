@@ -1,5 +1,3 @@
-use std::{process::Command, sync::Arc, thread::spawn};
-
 use baseview::{
     Event, EventStatus, Size, Window, WindowHandle, WindowHandler, WindowOpenOptions,
     WindowScalePolicy,
@@ -9,6 +7,7 @@ use nih_plug::{
     editor::{Editor, ParentWindowHandle},
     prelude::GuiContext,
 };
+use std::{process::Command, sync::Arc, thread::spawn};
 use x11rb::protocol::xproto::reparent_window;
 
 mod ipc;
@@ -82,16 +81,23 @@ impl Editor for IPCEditor {
                 baseview::Window::open_parented(&parent, options, move |_| Handler {});
 
             // start IPC server
-            let name = ipc::get_open_socket_name("IPC_TEST");
+            // name can be whatever
+            let name = ipc::get_open_socket_name("IPC_TEST__").unwrap();
 
+            // clone the name, and move it into a new thread
             let name_clone = name.clone();
             let handle = spawn(move || listen_for_client_id(name_clone).unwrap());
-            // sleep(Duration::from_secs(1));
-            // start GUI, which communicates with IPC server
 
-            let pid = gui::daemon::start_daemon(name);
+            // start GUI, which communicates with IPC server
+            // TODO: can this ever try connecting to the server *before* the server is open?
+            let pid = gui::daemon::start_daemon(name).unwrap();
 
             // wait until we get some response from our IPC server
+
+            // TODO:
+            // if something happens where the GUI doesn't open for whatever reason,
+            // this will totally block all other execution
+            // and that is really problematic
             let client_id = handle.join().unwrap();
 
             // x11 stuff
@@ -108,6 +114,7 @@ impl Editor for IPCEditor {
                 daemon_pid: pid,
             });
         }
+
         Box::new(())
     }
 

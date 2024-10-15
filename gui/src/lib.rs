@@ -1,6 +1,6 @@
 use interprocess::local_socket::{prelude::*, Name, Stream};
 use raw_window_handle::HasRawWindowHandle;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -11,7 +11,7 @@ use wry::WebViewBuilder;
 
 pub mod daemon;
 
-pub fn run(name: Name) -> std::io::Result<()> {
+pub fn run(name: Name) -> io::Result<()> {
     let window_size = LogicalSize::new(720, 720);
 
     let event_loop = EventLoop::new();
@@ -51,10 +51,11 @@ pub fn run(name: Name) -> std::io::Result<()> {
         .build()
         .expect("build failed..");
 
+    // important!!
     let raw_handle = window.raw_window_handle();
     if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
         let id_u32 = xlib_handle.window as u32;
-        send_id(name, id_u32);
+        send_id(name, id_u32)?;
     }
 
     println!("CLIENT: beginning event loop.");
@@ -71,11 +72,13 @@ pub fn run(name: Name) -> std::io::Result<()> {
     });
 }
 
-fn send_id(name: Name, id: u32) {
-    let mut conn = Stream::connect(name).expect("couldnt connect to socket");
+fn send_id(name: Name, id: u32) -> io::Result<()> {
+    let mut conn = Stream::connect(name)?;
 
     // --- 1. WRITE (OUT) ---
     conn.write_all(&id.to_be_bytes())
         .expect("Failed to send ping");
-    conn.write_all(b"\n").expect("Failed to send ping");
+    conn.write_all(b"\n")?;
+
+    Ok(())
 }

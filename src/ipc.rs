@@ -40,7 +40,7 @@ pub fn listen_for_client_id(name: Name) -> anyhow::Result<u32> {
     Ok(incoming)
 }
 
-pub fn get_open_socket_name(prefix: &str) -> Name<'static> {
+pub fn get_open_socket_name(prefix: &str) -> io::Result<Name<'static>> {
     let mut open = false;
     let mut iteration = 0;
     let mut printname = String::new();
@@ -48,13 +48,13 @@ pub fn get_open_socket_name(prefix: &str) -> Name<'static> {
     while !open {
         printname = format!("{}{}.sock", prefix, iteration);
         // FIX THIS CLONE
-        let name = printname.clone().to_ns_name::<GenericNamespaced>().unwrap();
+        let name = printname.clone().to_ns_name::<GenericNamespaced>()?;
 
         open = is_socket_open(name);
 
         iteration += 1;
     }
-    printname.clone().to_ns_name::<GenericNamespaced>().unwrap()
+    Ok(printname.clone().to_ns_name::<GenericNamespaced>().unwrap())
 }
 
 fn is_socket_open(name: Name) -> bool {
@@ -90,7 +90,7 @@ mod tests {
     fn get_first_open_name() {
         let prefix = "TEST_SOCKET1_";
 
-        let output = get_open_socket_name(prefix);
+        let output = get_open_socket_name(prefix).unwrap();
         let expected = "TEST_SOCKET1_0.sock"
             .to_ns_name::<GenericNamespaced>()
             .unwrap();
@@ -109,7 +109,7 @@ mod tests {
         );
         let _listener = opts.create_sync().unwrap();
 
-        let output = get_open_socket_name(prefix);
+        let output = get_open_socket_name(prefix).unwrap();
         let expected = "TEST_SOCKET2_1.sock"
             .to_ns_name::<GenericNamespaced>()
             .unwrap();

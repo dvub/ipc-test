@@ -1,10 +1,6 @@
 use ipc_test::IPCEditor;
 use nih_plug::prelude::*;
-
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 
 #[derive(Params)]
 struct PluginParams {
