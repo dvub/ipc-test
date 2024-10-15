@@ -15,7 +15,20 @@ use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix};
 use crate::{HTMLSource, IPCEditor};
 
 pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
-    let window_size = LogicalSize::new(720, 720);
+    let width = editor.width.clone();
+    let height = editor.height.clone();
+    let developer_mode = editor.developer_mode;
+    let source = editor.source.clone();
+    let background_color = editor.background_color;
+    let custom_protocol = editor.custom_protocol.clone();
+    let event_loop_handler = editor.event_loop_handler.clone();
+    let keyboard_handler = editor.keyboard_handler.clone();
+    let mouse_handler = editor.mouse_handler.clone();
+
+    let window_size = LogicalSize::new(
+        width.load(Ordering::Relaxed),
+        height.load(Ordering::Relaxed),
+    );
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -32,25 +45,11 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         WebViewBuilder::new_gtk(vbox)
     };
 
-    let width = editor.width.clone();
-    let height = editor.height.clone();
-    let developer_mode = editor.developer_mode;
-    let source = editor.source.clone();
-    let background_color = editor.background_color;
-    let custom_protocol = editor.custom_protocol.clone();
-    let event_loop_handler = editor.event_loop_handler.clone();
-    let keyboard_handler = editor.keyboard_handler.clone();
-    let mouse_handler = editor.mouse_handler.clone();
-
     builder = builder
         .with_bounds(Rect {
             // why would this be anything other than 0,0?
             position: LogicalPosition::new(0, 0).into(),
-            size: LogicalSize::new(
-                width.load(Ordering::Relaxed),
-                height.load(Ordering::Relaxed),
-            )
-            .into(),
+            size: window_size.into(),
         })
         .with_accept_first_mouse(true)
         .with_devtools(developer_mode)
