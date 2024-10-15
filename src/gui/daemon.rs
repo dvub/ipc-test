@@ -1,3 +1,4 @@
+use crate::IPCEditor;
 use daemonize::Daemonize;
 use interprocess::local_socket::Name;
 use std::fs::read_to_string;
@@ -5,9 +6,9 @@ use std::fs::File;
 use std::io;
 use tempdir::TempDir;
 
-use crate::run;
+use super::gui::run;
 
-pub fn start_daemon(name: Name) -> io::Result<usize> {
+pub fn start_daemon(name: Name, editor: &IPCEditor) -> io::Result<usize> {
     // will this be problematic?
     let directory = TempDir::new("IPC_TEST")?;
     let pid_path = directory.path().join("test.pid");
@@ -24,7 +25,7 @@ pub fn start_daemon(name: Name) -> io::Result<usize> {
         daemonize::Outcome::Parent(_) => {}
         daemonize::Outcome::Child(_) => {
             // i'm pretty sure unwrapping this is going to be really bad
-            let _ = run(name);
+            let _ = run(name, editor);
         }
     };
 

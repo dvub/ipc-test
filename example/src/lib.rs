@@ -94,7 +94,13 @@ impl Plugin for IPCPlugin {
     type BackgroundTask = ();
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        Some(Box::new(IPCEditor::default()))
+        let editor = IPCEditor::new(
+            ipc_test::HTMLSource::String(include_str!("gui.html")),
+            (720, 720),
+        )
+        .with_background_color((0, 0, 0, 1));
+
+        Some(Box::new(editor))
     }
 
     fn process(
