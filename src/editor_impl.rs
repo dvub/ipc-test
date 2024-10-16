@@ -2,26 +2,31 @@ use crate::{
     gui::daemon,
     instance::Instance,
     ipc::{self, listen_for_client_id},
-    EventLoopHandler, IPCEditor, KeyboardHandler, MouseHandler,
+    IPCEditor,
 };
 
-use baseview::{Event, EventStatus};
-use keyboard_types::KeyboardEvent;
+use baseview::{Event, EventStatus, Size, WindowOpenOptions, WindowScalePolicy};
 
 use nih_plug::{
     editor::{Editor, ParentWindowHandle},
-    prelude::{GuiContext, ParamSetter},
+    prelude::GuiContext,
+    wrapper::vst3::vst3_sys::base,
 };
-use serde_json::Value;
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+
 use std::{
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    },
+    sync::{atomic::Ordering, Arc},
     thread::spawn,
 };
-use wry::WebView;
-use x11rb::protocol::xproto::reparent_window;
+
+use x11rb::{
+    connection::RequestConnection,
+    protocol::{
+        xproto::{self, reparent_window, send_event, EventMask, KeyPressEvent, KeyReleaseEvent},
+        Event as XEvent,
+    },
+    rust_connection::RustConnection,
+};
 
 impl Editor for IPCEditor {
     fn spawn(
@@ -43,9 +48,6 @@ impl Editor for IPCEditor {
         // TODO:
         // fix this massive if let
         if let ParentWindowHandle::X11Window(embedder_id) = parent {
-            let window_handle =
-                baseview::Window::open_parented(&parent, options, move |_| Handler {});
-
             // start IPC server
             // name can be whatever
             let name = ipc::get_open_socket_name("IPC_TEST__").unwrap();
@@ -70,10 +72,17 @@ impl Editor for IPCEditor {
             // TODO:
             // - should we store this x11 connection for later?
             // - improve error handling here
-            let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
 
-            let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
-            c.check().unwrap();
+            let window_handle = baseview::Window::open_parented(&parent, options, move |_| {
+                let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+                let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
+                c.check().unwrap();
+
+                Handler {
+                    connection: x_conn,
+                    client_id,
+                }
+            });
 
             return Box::new(Instance {
                 window: window_handle,
@@ -104,43 +113,11 @@ impl Editor for IPCEditor {
 }
 
 pub struct Handler {
-    context: Arc<dyn GuiContext>,
-    event_loop_handler: Arc<EventLoopHandler>,
-    keyboard_handler: Arc<KeyboardHandler>,
-    mouse_handler: Arc<MouseHandler>,
-    webview: WebView,
-    // events_receiver: Receiver<Value>,
-    pub width: Arc<AtomicU32>,
-    pub height: Arc<AtomicU32>,
+    connection: RustConnection,
+    client_id: u32,
 }
 
 impl Handler {
-    /*
-    pub fn resize(&self, window: &mut baseview::Window, width: u32, height: u32) {
-        self.webview.set_bounds(wry::Rect {
-            x: 0,
-            y: 0,
-            width,
-            height,
-        });
-        self.width.store(width, Ordering::Relaxed);
-        self.height.store(height, Ordering::Relaxed);
-        self.context.request_resize();
-        window.resize(Size {
-            width: width as f64,
-            height: height as f64,
-        });
-    }*/
-
-    pub fn send_json(&self, json: Value) {
-        let json_str = json.to_string();
-        let json_str_quoted =
-            serde_json::to_string(&json_str).expect("Should not fail: the value is always string");
-        self.webview
-            .evaluate_script(&format!("onPluginMessageInternal({});", json_str_quoted))
-            .unwrap();
-    }
-
     /*
     pub fn next_event(&self) -> Result<Value, crossbeam::channel::TryRecvError> {
         self.events_receiver.try_recv()
@@ -149,12 +126,53 @@ impl Handler {
 }
 
 impl baseview::WindowHandler for Handler {
-    fn on_frame(&mut self, window: &mut baseview::Window) {
-        let setter = ParamSetter::new(&*self.context);
-        (self.event_loop_handler)(self, setter, window);
-    }
+    fn on_frame(&mut self, _window: &mut baseview::Window) {}
 
-    fn on_event(&mut self, _window: &mut baseview::Window, event: Event) -> EventStatus {
+    fn on_event(&mut self, window: &mut baseview::Window, event: Event) -> EventStatus {
+        if let Event::Keyboard(keyboard_event) = event {
+            println!("{:?}", keyboard_event);
+            if let RawWindowHandle::Xlib(mut embedder_window) = window.raw_window_handle() {
+                embedder_window.window = self.client_id as u64;
+
+                let e = KeyPressEvent {
+                    response_type: 0,
+                    detail: 0,
+                    sequence: keyboard_event.key.legacy_charcode() as u16,
+                    time: todo!(),
+                    root: todo!(),
+                    event: todo!(),
+                    child: todo!(),
+                    root_x: todo!(),
+                    root_y: todo!(),
+                    event_x: todo!(),
+                    event_y: todo!(),
+                    state: todo!(),
+                    same_screen: todo!(),
+                };
+
+                send_event(
+                    &self.connection,
+                    false,
+                    self.client_id,
+                    EventMask::NO_EVENT,
+                    e,
+                )
+                .unwrap()
+                .check()
+                .unwrap();
+            }
+        }
+
+        /*
+        match event {
+            Event::Mouse(mouse_event) => todo!(),
+            Event::Keyboard(keyboard_event) => todo!(),
+            Event::Window(window_event) => todo!(),
+        }
+        */
+
+        EventStatus::Captured
+        /*
         match event {
             Event::Keyboard(event) => {
                 if (self.keyboard_handler)(event) {
@@ -166,5 +184,6 @@ impl baseview::WindowHandler for Handler {
             Event::Mouse(mouse_event) => (self.mouse_handler)(mouse_event),
             _ => EventStatus::Ignored,
         }
+        */
     }
 }
