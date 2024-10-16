@@ -1,5 +1,6 @@
 use interprocess::local_socket::{prelude::*, Name, Stream};
 use raw_window_handle::HasRawWindowHandle;
+use std::env::set_var;
 use std::io::{self, prelude::*};
 use std::sync::atomic::Ordering;
 use tao::dpi::LogicalPosition;
@@ -10,11 +11,14 @@ use tao::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use wry::http::Request;
 use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix};
 
 use crate::{HTMLSource, IPCEditor};
 
 pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
+    // set_var("WINIT_UNIX_BACKEND", "x11");
+
     let width = editor.width.clone();
     let height = editor.height.clone();
     let developer_mode = editor.developer_mode;
@@ -51,8 +55,15 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
             position: LogicalPosition::new(0, 0).into(),
             size: window_size.into(),
         })
+        .with_initialization_script(include_str!("script.js"))
         .with_accept_first_mouse(true)
         .with_devtools(developer_mode)
+        .with_ipc_handler(move |msg: Request<String>| {
+            let body = msg.body();
+            if body == "HI" {
+                println!("{}", msg.body());
+            }
+        })
         // TODO!!!!
         /*  .with_web_context(&mut web_context)
          .with_initialization_script(include_str!("script.js"))
@@ -80,7 +91,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
 
     // TODO:
     // should probably do something with this
-    let _webview = builder.build().expect("build failed..");
+    let webview = builder.build().expect("build failed..");
 
     // important!!
     let raw_handle = window.raw_window_handle();
@@ -90,16 +101,12 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     }
 
     println!("CLIENT: beginning event loop.");
-    event_loop.run(move |event, _, control_flow| {
+
+    // window.set_focus();
+    event_loop.run(move |event, w, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        if let Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            *control_flow = ControlFlow::Exit
-        }
+        println!("{:?}", event);
     });
 }
 

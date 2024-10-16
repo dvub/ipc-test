@@ -22,7 +22,10 @@ use std::{
 use x11rb::{
     connection::RequestConnection,
     protocol::{
-        xproto::{self, reparent_window, send_event, EventMask, KeyPressEvent, KeyReleaseEvent},
+        xproto::{
+            self, reparent_window, send_event, EventMask, KeyButMask, KeyPressEvent,
+            KeyReleaseEvent,
+        },
         Event as XEvent,
     },
     rust_connection::RustConnection,
@@ -73,15 +76,13 @@ impl Editor for IPCEditor {
             // - should we store this x11 connection for later?
             // - improve error handling here
 
-            let window_handle = baseview::Window::open_parented(&parent, options, move |_| {
+            let window_handle = baseview::Window::open_parented(&parent, options, move |w| {
                 let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
                 let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
                 c.check().unwrap();
 
-                Handler {
-                    connection: x_conn,
-                    client_id,
-                }
+                // println!("{}", w.has_focus());
+                Handler {}
             });
 
             return Box::new(Instance {
@@ -112,10 +113,7 @@ impl Editor for IPCEditor {
     fn param_values_changed(&self) {}
 }
 
-pub struct Handler {
-    connection: RustConnection,
-    client_id: u32,
-}
+pub struct Handler {}
 
 impl Handler {
     /*
@@ -126,51 +124,13 @@ impl Handler {
 }
 
 impl baseview::WindowHandler for Handler {
-    fn on_frame(&mut self, _window: &mut baseview::Window) {}
+    fn on_frame(&mut self, window: &mut baseview::Window) {
+        // println!("{}", window.has_focus());
+    }
 
     fn on_event(&mut self, window: &mut baseview::Window, event: Event) -> EventStatus {
-        if let Event::Keyboard(keyboard_event) = event {
-            println!("{:?}", keyboard_event);
-            if let RawWindowHandle::Xlib(mut embedder_window) = window.raw_window_handle() {
-                embedder_window.window = self.client_id as u64;
-
-                let e = KeyPressEvent {
-                    response_type: 0,
-                    detail: 0,
-                    sequence: keyboard_event.key.legacy_charcode() as u16,
-                    time: todo!(),
-                    root: todo!(),
-                    event: todo!(),
-                    child: todo!(),
-                    root_x: todo!(),
-                    root_y: todo!(),
-                    event_x: todo!(),
-                    event_y: todo!(),
-                    state: todo!(),
-                    same_screen: todo!(),
-                };
-
-                send_event(
-                    &self.connection,
-                    false,
-                    self.client_id,
-                    EventMask::NO_EVENT,
-                    e,
-                )
-                .unwrap()
-                .check()
-                .unwrap();
-            }
-        }
-
-        /*
-        match event {
-            Event::Mouse(mouse_event) => todo!(),
-            Event::Keyboard(keyboard_event) => todo!(),
-            Event::Window(window_event) => todo!(),
-        }
-        */
-
+        println!("{:?}", event);
+        // println!("focus?{}", window.has_focus());
         EventStatus::Captured
         /*
         match event {

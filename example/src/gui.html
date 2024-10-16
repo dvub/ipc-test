@@ -39,8 +39,8 @@
     </style>
 </head>
 
-<body>
-
+<body  >
+    <input class="myText"  onkeydown="printMessage()" type="text"></input>
     Gain:
     <input style="margin: 1rem;" class="slider" type="range" min="0" max="1" step="0.01" />
     <span class="value-display"></span>
@@ -56,14 +56,27 @@
   </pre>
 
     <script>
+        console.log("this should work")
+
+        function printMessage() {
+            // sendToPlugin("HI");
+            console.log("Button was clicked!");
+            alert("Button was clicked!");
+        }
+
         let size = { width: 0, height: 0 };
         const slider = document.querySelector('.slider');
 
         slider.addEventListener('input', e => {
             e.preventDefault();
             console.log(e.target.value);
-            sendToPlugin({ type: 'SetGain', value: Number(e.target.value) });
+            // sendToPlugin({ type: 'SetGain', value: Number(e.target.value) });
         });
+
+        document.addEventListener("keydown", e => {
+            console.log(e);
+        })
+
 
         window.onPluginMessage = msg => {
             switch (msg.type) {
