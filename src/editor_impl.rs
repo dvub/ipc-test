@@ -131,7 +131,7 @@ impl baseview::WindowHandler for Handler {
     fn on_event(&mut self, window: &mut baseview::Window, event: Event) -> EventStatus {
         println!("{:?}", event);
         // println!("focus?{}", window.has_focus());
-        EventStatus::Captured
+        EventStatus::Ignored
         /*
         match event {
             Event::Keyboard(event) => {

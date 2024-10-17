@@ -5,6 +5,7 @@ use std::io::{self, prelude::*};
 use std::sync::atomic::Ordering;
 use tao::dpi::LogicalPosition;
 use tao::platform::unix::WindowExtUnix;
+use tao::window::UserAttentionType;
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -12,7 +13,7 @@ use tao::{
     window::WindowBuilder,
 };
 use wry::http::Request;
-use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix};
+use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
 
 use crate::{HTMLSource, IPCEditor};
 
@@ -58,6 +59,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         .with_initialization_script(include_str!("script.js"))
         .with_accept_first_mouse(true)
         .with_devtools(developer_mode)
+        .with_focused(false)
         .with_ipc_handler(move |msg: Request<String>| {
             let body = msg.body();
             if body == "HI" {
@@ -107,6 +109,16 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         *control_flow = ControlFlow::Wait;
 
         println!("{:?}", event);
+        /*match event {
+            Event::WindowEvent {
+                window_id, event, ..
+            } => println!("WINDOW: {:?}", event),
+            Event::DeviceEvent {
+                device_id, event, ..
+            } => println!("DEVICE: {:?}", event),
+
+            _ => {}
+        };*/
     });
 }
 
