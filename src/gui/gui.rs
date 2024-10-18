@@ -71,11 +71,11 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         .with_focused(false)
         .with_ipc_handler(move |msg: Request<String>| {
             let body = msg.body();
-            if body == "FOCUS" {
-                println!("SOMETHING SHOULD HAPPEN");
-                let n = set_input_focus(&x_conn, InputFocus::NONE, client_id, CURRENT_TIME)
-                    .expect("oh no!");
-                n.check().expect("FUCK");
+            if body == "FOCUS_IN" {
+                let focus_request =
+                    set_input_focus(&x_conn, InputFocus::NONE, client_id, CURRENT_TIME)
+                        .expect("oh no!");
+                focus_request.check().expect("FUCK");
             }
         })
         // TODO!!!!
@@ -112,22 +112,8 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     send_id(name, client_id)?;
 
     println!("CLIENT: beginning event loop.");
-
-    // window.set_focus();
-    event_loop.run(move |event, w, control_flow| {
+    event_loop.run(move |_, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-
-        println!("{:?}", event);
-        /*match event {
-            Event::WindowEvent {
-                window_id, event, ..
-            } => println!("WINDOW: {:?}", event),
-            Event::DeviceEvent {
-                device_id, event, ..
-            } => println!("DEVICE: {:?}", event),
-
-            _ => {}
-        };*/
     });
 }
 

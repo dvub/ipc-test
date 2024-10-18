@@ -64,27 +64,29 @@ impl Editor for IPCEditor {
             let client_id = handle.join().unwrap();
 
             // x11 stuff
+
             // TODO:
-            // - should we store this x11 connection for later?
             // - improve error handling here
 
-            let window_handle = baseview::Window::open_parented(&parent, options, move |w| {
+            let window_handle = baseview::Window::open_parented(&parent, options, move |_| {
                 let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
 
-                let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
-                c.check().unwrap();
+                // should we unwrap this?
+                let reparent_request =
+                    reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
 
-                // println!("{}", w.has_focus());
+                // we probably want to unwrap or expect this
+                // if this request is fucked up for some reason
+                // we cannot let things continue normally
+                reparent_request.check().unwrap();
+
                 Handler {
                     x_conn,
                     client_id,
                     wants_initial_focus: true,
                 }
             });
-            /*
-                        sleep(Duration::from_secs(2));
 
-            */
             return Box::new(Instance {
                 window: window_handle,
                 daemon_pid: pid,
@@ -119,44 +121,21 @@ pub struct Handler {
     client_id: u32,
 }
 
-impl Handler {
-    /*
-    pub fn next_event(&self) -> Result<Value, crossbeam::channel::TryRecvError> {
-        self.events_receiver.try_recv()
-    }
-    */
-}
-
 impl baseview::WindowHandler for Handler {
     fn on_frame(&mut self, _window: &mut baseview::Window) {
         if self.wants_initial_focus {
-            let n = set_input_focus(&self.x_conn, InputFocus::NONE, self.client_id, CURRENT_TIME)
-                .expect("oh no!");
-            n.check().expect("FUCK");
-            // worst case scenario?
-            // just call focus on every frame
+            let focus_request =
+                set_input_focus(&self.x_conn, InputFocus::NONE, self.client_id, CURRENT_TIME)
+                    .unwrap();
+
+            // TODO:
+            // should we unwrap, and potentially panic on this?
+            focus_request.check().unwrap();
             self.wants_initial_focus = false;
         }
-
-        // println!("{}", window.has_focus());
     }
 
-    fn on_event(&mut self, _window: &mut baseview::Window, event: Event) -> EventStatus {
-        println!("{:?}", event);
-        // println!("focus?{}", window.has_focus());
-        EventStatus::Ignored
-        /*
-        match event {
-            Event::Keyboard(event) => {
-                if (self.keyboard_handler)(event) {
-                    EventStatus::Captured
-                } else {
-                    EventStatus::Ignored
-                }
-            }
-            Event::Mouse(mouse_event) => (self.mouse_handler)(mouse_event),
-            _ => EventStatus::Ignored,
-        }
-        */
+    fn on_event(&mut self, _window: &mut baseview::Window, _event: Event) -> EventStatus {
+        EventStatus::Captured
     }
 }

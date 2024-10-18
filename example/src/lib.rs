@@ -2,19 +2,11 @@ use ipc_test::{HTMLSource, IPCEditor};
 // Forked and modified from: https://github.com/robbert-vdh/nih-plug/tree/master/plugins/examples/gain
 use nih_plug::prelude::*;
 
-use serde::Deserialize;
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 struct Gain {
     params: Arc<GainParams>,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "type")]
-enum Action {
-    Init,
 }
 
 #[derive(Params)]
