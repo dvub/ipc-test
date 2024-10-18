@@ -14,10 +14,14 @@ use tao::{
 };
 use wry::http::Request;
 use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
+use x11rb::protocol::xproto::{set_input_focus, InputFocus};
+use x11rb::CURRENT_TIME;
 
 use crate::{HTMLSource, IPCEditor};
 
 pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
+    let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+
     // set_var("WINIT_UNIX_BACKEND", "x11");
 
     let width = editor.width.clone();
@@ -41,6 +45,12 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         .build(&event_loop)
         .unwrap();
 
+    let mut client_id = 0;
+    let raw_handle = window.raw_window_handle();
+    if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
+        client_id = xlib_handle.window as u32;
+    }
+
     #[cfg(any(target_os = "windows", target_os = "macos",))]
     let builder = WebViewBuilder::new(&window);
 
@@ -62,8 +72,12 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         .with_focused(false)
         .with_ipc_handler(move |msg: Request<String>| {
             let body = msg.body();
-            if body == "HI" {
-                println!("{}", msg.body());
+            println!("{}", body);
+            if body == "FOCUS" {
+                println!("SOMETHING SHOULD HAPPEN");
+                let n = set_input_focus(&x_conn, InputFocus::NONE, client_id, CURRENT_TIME)
+                    .expect("oh no!");
+                n.check().expect("FUCK");
             }
         })
         // TODO!!!!
@@ -96,11 +110,8 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     let webview = builder.build().expect("build failed..");
 
     // important!!
-    let raw_handle = window.raw_window_handle();
-    if let tao::rwh_05::RawWindowHandle::Xlib(xlib_handle) = raw_handle {
-        let id_u32 = xlib_handle.window as u32;
-        send_id(name, id_u32)?;
-    }
+
+    send_id(name, client_id)?;
 
     println!("CLIENT: beginning event loop.");
 
@@ -108,7 +119,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     event_loop.run(move |event, w, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        println!("{:?}", event);
+        // println!("{:?}", event);
         /*match event {
             Event::WindowEvent {
                 window_id, event, ..

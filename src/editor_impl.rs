@@ -88,7 +88,7 @@ impl Editor for IPCEditor {
                 Handler {
                     x_conn,
                     client_id,
-                    frames: 0,
+                    wants_initial_focus: true,
                 }
             });
             /*
@@ -124,7 +124,7 @@ impl Editor for IPCEditor {
 }
 
 pub struct Handler {
-    frames: i32,
+    wants_initial_focus: bool,
     x_conn: RustConnection,
     client_id: u32,
 }
@@ -139,13 +139,15 @@ impl Handler {
 
 impl baseview::WindowHandler for Handler {
     fn on_frame(&mut self, window: &mut baseview::Window) {
-        if self.frames == 0 {
+        if self.wants_initial_focus {
             let n = set_input_focus(&self.x_conn, InputFocus::NONE, self.client_id, CURRENT_TIME)
                 .expect("oh no!");
             n.check().expect("FUCK");
+            // worst case scenario?
+            // just call focus on every frame
+            self.wants_initial_focus = false;
         }
 
-        self.frames += 1;
         // println!("{}", window.has_focus());
     }
 

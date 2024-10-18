@@ -14,8 +14,8 @@
     </style>
 </head>
 
-<body >
-    <div  onclick="printMessage()">
+<body onclick="printMessage()">
+  
     <input class="myText" type="text"></input>
     Gain:
     <input style="margin: 1rem;" class="slider" type="range" min="0" max="1" step="0.01" />
@@ -25,12 +25,13 @@
 
   </pre>
 
-</div>
+
     <script>
         console.log("this should work")
 
         function printMessage() {
-            alert('fuc')
+            console.log("Content wants focus.");
+            sendToPlugin("FOCUS");
         }
 
         sendToPlugin({ type: 'Init' });
