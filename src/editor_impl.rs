@@ -5,8 +5,9 @@ use crate::{
     IPCEditor,
 };
 
-use baseview::{Event, EventStatus, Size, WindowOpenOptions, WindowScalePolicy};
+use baseview::{Event, EventStatus, MouseEvent, Size, WindowOpenOptions, WindowScalePolicy};
 
+use keyboard_types::KeyboardEvent;
 use nih_plug::{
     editor::{Editor, ParentWindowHandle},
     prelude::GuiContext,
@@ -22,6 +23,8 @@ use x11rb::{
     rust_connection::RustConnection,
     CURRENT_TIME,
 };
+type KeyboardHandler = dyn Fn(KeyboardEvent) -> bool + Send + Sync;
+type MouseHandler = dyn Fn(MouseEvent) -> EventStatus + Send + Sync;
 
 impl Editor for IPCEditor {
     fn spawn(
@@ -84,6 +87,8 @@ impl Editor for IPCEditor {
                     x_conn,
                     client_id,
                     wants_initial_focus: true,
+                    keyboard_handler: self.keyboard_handler.clone(),
+                    mouse_handler: self.mouse_handler.clone(),
                 }
             });
 
@@ -119,6 +124,8 @@ pub struct Handler {
     wants_initial_focus: bool,
     x_conn: RustConnection,
     client_id: u32,
+    keyboard_handler: Arc<KeyboardHandler>,
+    mouse_handler: Arc<MouseHandler>,
 }
 
 impl baseview::WindowHandler for Handler {
@@ -135,7 +142,17 @@ impl baseview::WindowHandler for Handler {
         }
     }
 
-    fn on_event(&mut self, _window: &mut baseview::Window, _event: Event) -> EventStatus {
-        EventStatus::Captured
+    fn on_event(&mut self, _window: &mut baseview::Window, event: Event) -> EventStatus {
+        match event {
+            Event::Keyboard(event) => {
+                if (self.keyboard_handler)(event) {
+                    EventStatus::Captured
+                } else {
+                    EventStatus::Ignored
+                }
+            }
+            Event::Mouse(mouse_event) => (self.mouse_handler)(mouse_event),
+            _ => EventStatus::Ignored,
+        }
     }
 }

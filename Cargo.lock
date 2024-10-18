@@ -645,6 +645,7 @@ name = "example"
 version = "0.1.0"
 dependencies = [
  "ipc-test",
+ "keyboard-types 0.7.0",
  "nih_plug",
  "serde",
  "serde_json",
