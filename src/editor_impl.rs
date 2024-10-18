@@ -16,19 +16,21 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use std::{
     sync::{atomic::Ordering, Arc},
-    thread::spawn,
+    thread::{sleep, spawn},
+    time::{Duration, SystemTime},
 };
 
 use x11rb::{
     connection::RequestConnection,
     protocol::{
         xproto::{
-            self, reparent_window, send_event, EventMask, KeyButMask, KeyPressEvent,
-            KeyReleaseEvent,
+            self, reparent_window, send_event, set_input_focus, EventMask, InputFocus, KeyButMask,
+            KeyPressEvent, KeyReleaseEvent, Time,
         },
         Event as XEvent,
     },
     rust_connection::RustConnection,
+    CURRENT_TIME,
 };
 
 impl Editor for IPCEditor {
@@ -78,13 +80,21 @@ impl Editor for IPCEditor {
 
             let window_handle = baseview::Window::open_parented(&parent, options, move |w| {
                 let (x_conn, _screen_num) = x11rb::connect(None).unwrap();
+
                 let c = reparent_window(&x_conn, client_id, embedder_id, 0, 0).unwrap();
                 c.check().unwrap();
 
                 // println!("{}", w.has_focus());
-                Handler {}
+                Handler {
+                    x_conn,
+                    client_id,
+                    frames: 0,
+                }
             });
+            /*
+                        sleep(Duration::from_secs(2));
 
+            */
             return Box::new(Instance {
                 window: window_handle,
                 daemon_pid: pid,
@@ -113,7 +123,11 @@ impl Editor for IPCEditor {
     fn param_values_changed(&self) {}
 }
 
-pub struct Handler {}
+pub struct Handler {
+    frames: i32,
+    x_conn: RustConnection,
+    client_id: u32,
+}
 
 impl Handler {
     /*
@@ -125,6 +139,13 @@ impl Handler {
 
 impl baseview::WindowHandler for Handler {
     fn on_frame(&mut self, window: &mut baseview::Window) {
+        if self.frames == 0 {
+            let n = set_input_focus(&self.x_conn, InputFocus::NONE, self.client_id, CURRENT_TIME)
+                .expect("oh no!");
+            n.check().expect("FUCK");
+        }
+
+        self.frames += 1;
         // println!("{}", window.has_focus());
     }
 
