@@ -10,25 +10,15 @@ use baseview::{Event, EventStatus, Size, WindowOpenOptions, WindowScalePolicy};
 use nih_plug::{
     editor::{Editor, ParentWindowHandle},
     prelude::GuiContext,
-    wrapper::vst3::vst3_sys::base,
 };
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use std::{
     sync::{atomic::Ordering, Arc},
-    thread::{sleep, spawn},
-    time::{Duration, SystemTime},
+    thread::spawn,
 };
 
 use x11rb::{
-    connection::RequestConnection,
-    protocol::{
-        xproto::{
-            self, reparent_window, send_event, set_input_focus, EventMask, InputFocus, KeyButMask,
-            KeyPressEvent, KeyReleaseEvent, Time,
-        },
-        Event as XEvent,
-    },
+    protocol::xproto::{reparent_window, set_input_focus, InputFocus},
     rust_connection::RustConnection,
     CURRENT_TIME,
 };
@@ -138,7 +128,7 @@ impl Handler {
 }
 
 impl baseview::WindowHandler for Handler {
-    fn on_frame(&mut self, window: &mut baseview::Window) {
+    fn on_frame(&mut self, _window: &mut baseview::Window) {
         if self.wants_initial_focus {
             let n = set_input_focus(&self.x_conn, InputFocus::NONE, self.client_id, CURRENT_TIME)
                 .expect("oh no!");
@@ -151,7 +141,7 @@ impl baseview::WindowHandler for Handler {
         // println!("{}", window.has_focus());
     }
 
-    fn on_event(&mut self, window: &mut baseview::Window, event: Event) -> EventStatus {
+    fn on_event(&mut self, _window: &mut baseview::Window, event: Event) -> EventStatus {
         println!("{:?}", event);
         // println!("focus?{}", window.has_focus());
         EventStatus::Ignored

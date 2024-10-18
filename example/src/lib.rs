@@ -15,8 +15,6 @@ struct Gain {
 #[serde(tag = "type")]
 enum Action {
     Init,
-    SetSize { width: u32, height: u32 },
-    SetGain { value: f32 },
 }
 
 #[derive(Params)]
@@ -114,8 +112,8 @@ impl Plugin for Gain {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        let params = self.params.clone();
-        let gain_value_changed = self.params.gain_value_changed.clone();
+        let _params = self.params.clone();
+        let _gain_value_changed = self.params.gain_value_changed.clone();
         let editor = IPCEditor::new(HTMLSource::String(include_str!("gui.html")), (200, 200))
             .with_background_color((150, 150, 150, 255))
             .with_developer_mode(true);

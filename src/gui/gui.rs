@@ -1,19 +1,18 @@
 use interprocess::local_socket::{prelude::*, Name, Stream};
 use raw_window_handle::HasRawWindowHandle;
-use std::env::set_var;
+
 use std::io::{self, prelude::*};
 use std::sync::atomic::Ordering;
 use tao::dpi::LogicalPosition;
 use tao::platform::unix::WindowExtUnix;
-use tao::window::UserAttentionType;
+
 use tao::{
     dpi::LogicalSize,
-    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 use wry::http::Request;
-use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
+use wry::{Rect, WebViewBuilder, WebViewBuilderExtUnix};
 use x11rb::protocol::xproto::{set_input_focus, InputFocus};
 use x11rb::CURRENT_TIME;
 
@@ -30,9 +29,9 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     let source = editor.source.clone();
     let background_color = editor.background_color;
     let custom_protocol = editor.custom_protocol.clone();
-    let event_loop_handler = editor.event_loop_handler.clone();
-    let keyboard_handler = editor.keyboard_handler.clone();
-    let mouse_handler = editor.mouse_handler.clone();
+    let _event_loop_handler = editor.event_loop_handler.clone();
+    let _keyboard_handler = editor.keyboard_handler.clone();
+    let _mouse_handler = editor.mouse_handler.clone();
 
     let window_size = LogicalSize::new(
         width.load(Ordering::Relaxed),
@@ -72,7 +71,6 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
         .with_focused(false)
         .with_ipc_handler(move |msg: Request<String>| {
             let body = msg.body();
-            println!("{}", body);
             if body == "FOCUS" {
                 println!("SOMETHING SHOULD HAPPEN");
                 let n = set_input_focus(&x_conn, InputFocus::NONE, client_id, CURRENT_TIME)
@@ -107,7 +105,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
 
     // TODO:
     // should probably do something with this
-    let webview = builder.build().expect("build failed..");
+    let _webview = builder.build().expect("build failed..");
 
     // important!!
 
@@ -119,7 +117,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     event_loop.run(move |event, w, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        // println!("{:?}", event);
+        println!("{:?}", event);
         /*match event {
             Event::WindowEvent {
                 window_id, event, ..
