@@ -124,7 +124,7 @@ source = "git+https://github.com/RustAudio/baseview.git#579130ecb4f9f315ae52190a
 dependencies = [
  "cocoa 0.24.1",
  "core-foundation 0.9.4",
- "keyboard-types 0.6.2",
+ "keyboard-types",
  "nix",
  "objc",
  "raw-window-handle 0.5.2",
@@ -145,9 +145,6 @@ name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "block"
@@ -645,10 +642,11 @@ name = "example"
 version = "0.1.0"
 dependencies = [
  "ipc-test",
- "keyboard-types 0.7.0",
+ "keyboard-types",
  "nih_plug",
  "serde",
  "serde_json",
+ "tao",
 ]
 
 [[package]]
@@ -1224,7 +1222,7 @@ dependencies = [
  "baseview",
  "daemonize",
  "interprocess",
- "keyboard-types 0.7.0",
+ "keyboard-types",
  "nih_plug",
  "raw-window-handle 0.5.2",
  "serde",
@@ -1299,15 +1297,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b7668b7cff6a51fe61cdde64cd27c8a220786f399501b57ebe36f7d8112fd68"
 dependencies = [
  "bitflags 1.3.2",
-]
-
-[[package]]
-name = "keyboard-types"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b750dcadc39a09dbadd74e118f6dd6598df77fa01df0cfcdc52c28dece74528a"
-dependencies = [
- "bitflags 2.6.0",
  "serde",
  "unicode-segmentation",
 ]

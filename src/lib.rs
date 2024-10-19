@@ -2,6 +2,7 @@
 
 use baseview::{Window, WindowHandler};
 use nih_plug::prelude::ParamSetter;
+use tao::event::KeyEvent;
 
 use std::{
     borrow::Cow,
@@ -18,7 +19,7 @@ mod instance;
 mod ipc;
 
 type EventLoopHandler = dyn Fn(&dyn WindowHandler, ParamSetter, &mut Window) + Send + Sync;
-type KeyboardHandler = dyn Fn(KeyboardEvent) -> bool + Send + Sync;
+type KeyboardHandler = dyn Fn(KeyEvent) -> bool + Send + Sync;
 type MouseHandler = dyn Fn(MouseEvent) -> EventStatus + Send + Sync;
 type CustomProtocolHandler =
     dyn Fn(&Request<Vec<u8>>) -> wry::Result<Response<Cow<'static, [u8]>>> + Send + Sync;
@@ -88,7 +89,7 @@ impl IPCEditor {
 
     pub fn with_keyboard_handler<F>(mut self, handler: F) -> Self
     where
-        F: Fn(KeyboardEvent) -> bool + Send + Sync + 'static,
+        F: Fn(KeyEvent) -> bool + Send + Sync + 'static,
     {
         self.keyboard_handler = Arc::new(handler);
         self

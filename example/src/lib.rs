@@ -2,6 +2,7 @@ use ipc_test::{DropData, DropEffect, EventStatus, HTMLSource, IPCEditor, MouseEv
 use keyboard_types::Key;
 // Forked and modified from: https://github.com/robbert-vdh/nih-plug/tree/master/plugins/examples/gain
 use nih_plug::prelude::*;
+use tao::keyboard::KeyCode;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -111,8 +112,13 @@ impl Plugin for Gain {
             .with_background_color((150, 150, 150, 255))
             .with_developer_mode(true)
             .with_keyboard_handler(move |event| {
-                println!("keyboard event: {event:#?}");
-                event.key == Key::Escape
+                // here, do whatever you want with the event
+                if let KeyCode::KeyA = event.physical_key {
+                    println!("Key A was pressed, and we are handling that!");
+                    true
+                } else {
+                    false
+                }
             })
             .with_mouse_handler(|event| match event {
                 MouseEvent::DragEntered { .. } => {

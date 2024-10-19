@@ -1,9 +1,11 @@
 use interprocess::local_socket::{prelude::*, Name, Stream};
-use raw_window_handle::HasRawWindowHandle;
 
+use raw_window_handle::HasRawWindowHandle;
 use std::io::{self, prelude::*};
 use std::sync::atomic::Ordering;
 use tao::dpi::LogicalPosition;
+use tao::event::{Event, WindowEvent};
+
 use tao::platform::unix::WindowExtUnix;
 
 use tao::{
@@ -30,7 +32,7 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     let background_color = editor.background_color;
     let custom_protocol = editor.custom_protocol.clone();
     let _event_loop_handler = editor.event_loop_handler.clone();
-    let _keyboard_handler = editor.keyboard_handler.clone();
+    let keyboard_handler = editor.keyboard_handler.clone();
     let _mouse_handler = editor.mouse_handler.clone();
 
     let window_size = LogicalSize::new(
@@ -112,7 +114,25 @@ pub fn run(name: Name, editor: &IPCEditor) -> io::Result<()> {
     send_id(name, client_id)?;
 
     println!("CLIENT: beginning event loop.");
-    event_loop.run(move |_, _, control_flow| {
+
+    // we are now running the event loop
+    event_loop.run(move |event, _, control_flow| {
+        match event {
+            Event::WindowEvent {
+                event: window_event,
+                ..
+            } => match window_event {
+                WindowEvent::KeyboardInput { event, .. } => keyboard_handler(event),
+                // TODO:
+                // mouse handling
+
+                // another todo:
+                // why are we working with bools?
+                _ => false,
+            },
+
+            _ => false,
+        };
         *control_flow = ControlFlow::Wait;
     });
 }
